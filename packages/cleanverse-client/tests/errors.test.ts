@@ -55,7 +55,7 @@ describe("Cleanverse errors", () => {
     expect(serialized).not.toContain(secretMarker);
     expect(serialized).not.toContain(plaintextMarker);
     expect(serialized).not.toContain(responseMarker);
-    expect(error.cause).toBe(cause);
+    expect(error.cause).toBeUndefined();
   });
 
   it("exposes only the Cleanverse business code", () => {

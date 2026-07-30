@@ -18,10 +18,9 @@ export function encryptPayload(
 
   try {
     plaintext = JSON.stringify(payload);
-  } catch (error) {
+  } catch {
     throw new CleanverseConfigurationError(
       "The Cleanverse payload could not be serialized.",
-      error,
     );
   }
 

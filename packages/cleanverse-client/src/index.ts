@@ -1,4 +1,8 @@
 export {
+  CleanverseClient,
+  type CleanverseResponse,
+} from "./client.js";
+export {
   CLEANVERSE_SANDBOX_BASE_URL,
   DEFAULT_CLEANVERSE_TIMEOUT_MS,
   type CleanverseClientConfig,

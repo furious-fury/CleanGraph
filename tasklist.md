@@ -37,7 +37,7 @@ parallel-safe.
 4. [x] Initialize `apps/api` with Node.js and TypeScript.
 5. [x] Select and configure Hono.
 6. [x] Initialize `packages/shared`.
-7. [ ] Initialize `packages/cleanverse-client`.
+7. [x] Initialize `packages/cleanverse-client`.
 8. [ ] Initialize `packages/contracts`.
 9. [x] Add TypeScript workspace aliases for the frontend.
 10. [x] Configure Oxlint for the frontend.
@@ -61,18 +61,18 @@ parallel-safe.
 
 ## 3. Cleanverse Client Foundation
 
-1. [ ] Configure the sandbox base URL.
-2. [ ] Add the `api-id` header.
-3. [ ] Generate a UUID `X-Request-ID` for each operation.
-4. [ ] Decode the Base64 API key only on the backend.
-5. [ ] Implement AES/CBC encryption with a 16-byte zero IV.
-6. [ ] Encode protected payloads as `{ "data": "<ciphertext>" }`.
-7. [ ] Add request timeout handling.
-8. [ ] Parse the Cleanverse response envelope.
-9. [ ] Separate HTTP failures from Cleanverse business failures.
-10. [ ] Redact secrets and sensitive values from errors and logs.
-11. [ ] Add known-vector encryption tests.
-12. [ ] Add response-envelope tests.
+1. [x] Configure the sandbox base URL.
+2. [x] Add the `api-id` header.
+3. [x] Generate a UUID `X-Request-ID` for each operation.
+4. [x] Decode the Base64 API key only on the backend.
+5. [x] Implement AES/CBC encryption with a 16-byte zero IV.
+6. [x] Encode protected payloads as `{ "data": "<ciphertext>" }`.
+7. [x] Add request timeout handling.
+8. [x] Parse the Cleanverse response envelope.
+9. [x] Separate HTTP failures from Cleanverse business failures.
+10. [x] Redact secrets and sensitive values from errors and logs.
+11. [x] Add known-vector encryption tests.
+12. [x] Add response-envelope tests.
 
 ## 4. Cleanverse Read Endpoints
 

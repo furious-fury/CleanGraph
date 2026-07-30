@@ -76,10 +76,9 @@ function normalizeBaseUrl(baseUrl: string): string {
 
   try {
     url = new URL(baseUrl);
-  } catch (error) {
+  } catch {
     throw new CleanverseConfigurationError(
       "The Cleanverse base URL is invalid.",
-      error,
     );
   }
 
@@ -106,6 +105,14 @@ export function resolveCleanverseClientConfig(
   if (apiId.length === 0) {
     throw new CleanverseConfigurationError(
       "The Cleanverse API ID must not be empty.",
+    );
+  }
+
+  try {
+    new Headers({ "api-id": apiId });
+  } catch {
+    throw new CleanverseConfigurationError(
+      "The Cleanverse API ID is not a valid HTTP header value.",
     );
   }
 

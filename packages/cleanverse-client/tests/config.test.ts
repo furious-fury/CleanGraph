@@ -45,15 +45,18 @@ describe("resolveCleanverseClientConfig", () => {
     expect(resolved.timeoutMs).toBe(DEFAULT_CLEANVERSE_TIMEOUT_MS);
   });
 
-  it.each(["", "   "])("rejects empty API ID %j", (apiId) => {
-    expect(() =>
-      resolveCleanverseClientConfig({
-        apiId,
-        apiKey: createApiKey(32),
-        fetch: fetchStub,
-      }),
-    ).toThrow(CleanverseConfigurationError);
-  });
+  it.each(["", "   ", "api-id\r\ninjected: value"])(
+    "rejects invalid API ID %j",
+    (apiId) => {
+      expect(() =>
+        resolveCleanverseClientConfig({
+          apiId,
+          apiKey: createApiKey(32),
+          fetch: fetchStub,
+        }),
+      ).toThrow(CleanverseConfigurationError);
+    },
+  );
 
   it.each([
     "",

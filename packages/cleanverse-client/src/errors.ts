@@ -14,7 +14,6 @@ type CleanverseErrorOptions = {
   requestId?: string;
   status?: number;
   cleanverseCode?: string;
-  cause?: unknown;
 };
 
 export class CleanverseError extends Error {
@@ -25,7 +24,7 @@ export class CleanverseError extends Error {
   readonly cleanverseCode: string | undefined;
 
   constructor(message: string, options: CleanverseErrorOptions) {
-    super(message, { cause: options.cause });
+    super(message);
     this.name = new.target.name;
     this.code = options.code;
     this.retryable = options.retryable;
@@ -59,33 +58,30 @@ export class CleanverseError extends Error {
 }
 
 export class CleanverseConfigurationError extends CleanverseError {
-  constructor(message: string, cause?: unknown) {
+  constructor(message: string) {
     super(message, {
       code: "CLEANVERSE_CONFIGURATION_ERROR",
       retryable: false,
-      cause,
     });
   }
 }
 
 export class CleanverseTimeoutError extends CleanverseError {
-  constructor(requestId: string, cause?: unknown) {
+  constructor(requestId: string) {
     super("The Cleanverse request timed out.", {
       code: "CLEANVERSE_TIMEOUT",
       retryable: true,
       requestId,
-      cause,
     });
   }
 }
 
 export class CleanverseNetworkError extends CleanverseError {
-  constructor(requestId: string, cause?: unknown) {
+  constructor(requestId: string) {
     super("The Cleanverse request failed before receiving a response.", {
       code: "CLEANVERSE_NETWORK_ERROR",
       retryable: true,
       requestId,
-      cause,
     });
   }
 }
@@ -102,12 +98,11 @@ export class CleanverseHttpError extends CleanverseError {
 }
 
 export class CleanverseMalformedResponseError extends CleanverseError {
-  constructor(requestId: string, cause?: unknown) {
+  constructor(requestId: string) {
     super("Cleanverse returned an invalid response.", {
       code: "CLEANVERSE_MALFORMED_RESPONSE",
       retryable: false,
       requestId,
-      cause,
     });
   }
 }
