@@ -1,25 +1,33 @@
 # CleanGraph Task List
 
-**Status:** Draft v0.1  
+**Status:** Draft v0.2
 **Rule:** Complete sections in order unless a task is explicitly marked as
 parallel-safe.
 
 ## 0. Product Decisions and External Access
 
-1. [ ] Confirm the exact RWA represented by the demo A-Token.
-2. [ ] Confirm the primary customer persona.
-3. [ ] Choose token name, symbol, decimals, and demo supply.
-4. [ ] Define the A-Pass tier/group mapping for accreditation.
-5. [ ] Choose the permitted or denied ISO country codes.
-6. [ ] Define Wallet A's eligible attributes.
-7. [ ] Define Wallet B's ineligible attributes.
-8. [ ] Decide whether CleanGraph enforces a per-transfer amount limit.
+1. [x] Define the RWA as a demo interest in a fictional short-term United
+   States Treasury-bill portfolio.
+2. [x] Define regulated traditional-finance institutions as the primary
+   customer.
+3. [x] Choose `Tokenized Real-World Asset`, symbol `TRWA`, 18 decimals, and a
+   `1,000,000 TRWA` demo supply.
+4. [x] Map accreditation logically to group `Institutional Investor` and
+   subgroup `Accredited Investor`.
+5. [x] Choose the country allowlist: `US`, `GB`, `DE`, and `SG`.
+6. [x] Define Wallet A as active, unexpired, correctly grouped, and tagged
+   with country `GB`.
+7. [x] Define Wallet B with the same valid investor attributes and country
+   `BR`, so only the country rule fails.
+8. [x] Exclude a CleanGraph per-transfer amount limit from the MVP.
 9. [ ] Decide whether to include clearly labelled deterministic demo mode.
 10. [ ] Record team members and ownership areas.
-11. [ ] Confirm the Cleanverse API ID has Issue Member permissions.
-12. [ ] Obtain the Cleanverse Monad A-Token ABI.
-13. [ ] Obtain `MINTER_ROLE` grant and mint instructions.
-14. [ ] Confirm the Monad sandbox chain ID, RPC URL, and explorer URL.
+11. [ ] Confirm the sandbox IDs for the `Institutional Investor` and
+    `Accredited Investor` mapping.
+12. [ ] Confirm the Cleanverse API ID has Issue Member permissions.
+13. [ ] Obtain the Cleanverse Monad A-Token ABI.
+14. [ ] Obtain `MINTER_ROLE` grant and mint instructions.
+15. [ ] Confirm the Monad sandbox chain ID, RPC URL, and explorer URL.
 
 ## 1. Workspace Foundation
 
@@ -120,7 +128,7 @@ parallel-safe.
 4. [ ] Verify the sender against the selected A-Token.
 5. [ ] Verify the recipient against the selected A-Token.
 6. [ ] Load A-Token rules for display evidence.
-7. [ ] Add the optional CleanGraph per-transfer amount check.
+7. [x] Confirm that preflight has no application-level amount-limit check.
 8. [ ] Build the ordered check result.
 9. [ ] Return approval only when every required check passes.
 10. [ ] Implement `POST /api/v1/assets/launch`.

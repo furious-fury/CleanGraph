@@ -12,12 +12,25 @@ The API-driven programmable compliance layer for Web3—combining Cleanverse A-P
 * **Track:** Track 1 — Real-World Assets (RWA).
 * **Network:** Monad, using the Cleanverse sandbox at `https://uatapi.cleanverse.com/api/cooperate`.
 * **Frontend:** Vite, React, and TypeScript. Privy or a comparable wallet library will be selected after validation.
-* **Backend:** Node.js and TypeScript. The framework will be selected during implementation planning.
+* **Backend:** Node.js, TypeScript, and Hono.
 * **Deployment:** Deferred until the application is ready. The intended targets are Vercel for the frontend and a private VPS for the backend.
 * **Out of Scope:** Zero-knowledge proof implementation.
 * **Technical Source:** Cleanverse Cooperate API v5.6, dated July 21, 2026.
 
-The Cleanverse v5.6 A-Token rule model supports A-Pass tier, sub-tier, group, sub-group, and country allow/deny rules. It does not document native per-transaction or daily spending limits. If the MVP needs an amount limit, CleanGraph must enforce that additional policy in its middleware and label it as a CleanGraph rule.
+The Cleanverse v5.6 A-Token rule model supports A-Pass tier, sub-tier, group, sub-group, and country allow/deny rules. It does not document native per-transaction or daily spending limits. The CleanGraph MVP will not add an application-level amount cap.
+
+### Confirmed MVP Asset and Policy
+
+* **Underlying asset:** A demo beneficial interest in a fictional portfolio of short-term United States Treasury bills. It is not a real security or claim on actual Treasury assets.
+* **Token:** `Tokenized Real-World Asset` (`TRWA`), displayed as `$TRWA`, with 18 decimals and a demo supply of `1,000,000 TRWA`.
+* **Customer:** Regulated traditional-finance institutions, represented in the product by RWA issuer, treasury, and compliance operators.
+* **Investor mapping:** A-Pass group `Institutional Investor` and subgroup `Accredited Investor`. Exact Cleanverse sandbox identifiers must be confirmed before issuance.
+* **Country policy:** Allowlist `US`, `GB`, `DE`, and `SG`.
+* **Wallet A:** Active and unexpired, with the required investor mapping and country `GB`.
+* **Wallet B:** Active and unexpired, with the same investor mapping and country `BR`; it fails only the country rule.
+* **Amount policy:** No additional CleanGraph per-transfer, daily, or cumulative cap.
+
+These labels and country choices are demo configuration, not legal advice, a sanctions list, or a production accreditation determination.
 
 ### The Problem: "Dirty" Liquidity and Rigid Compliance
 
@@ -190,8 +203,8 @@ Since the Cleanverse Build hackathon hacking period runs from August 8-9, here i
 2. **Confirm API Role:** Verify that the issued `api-id` has the Issue Member role required for A-Token launch and rule management.
 3. **Prepare the Demo A-Token:** Submit `POST /atoken/launch` for Monad, wait for `ISSUED`, grant the documented `MINTER_ROLE`, and mint the demo supply. Contract ABI and role-grant instructions must be obtained from the Cleanverse contract materials.
 4. **Prepare Demo A-Passes:** Use `POST /generate_apass` to create two Monad test profiles:
-* **Wallet A (Eligible):** Active A-Pass with a country and tier that satisfy the A-Token rule.
-* **Wallet B (Ineligible):** A-Pass attributes that intentionally fail either the country or tier rule selected by the team.
+* **Wallet A (Eligible):** Active, unexpired A-Pass with the required investor mapping and country `GB`.
+* **Wallet B (Ineligible):** Active, unexpired A-Pass with the same investor mapping and country `BR`, which is outside the A-Token allowlist.
 
 
 
@@ -215,11 +228,7 @@ Call the endpoint separately for the sender and receiver with `chain: "monad"` a
 Retrieve and display the tier, group, and country rules bound to the asset. Cleanverse performs the authoritative eligibility check through `POST /verify_apass`.
 
 
-4. **Enforce CleanGraph-Only Rules:**
-If an amount limit is part of the demo, enforce it in the middleware and identify it as an application policy because v5.6 does not document transaction limits in the A-Token rule object.
-
-
-5. **Return the Preflight Decision:**
+4. **Return the Preflight Decision:**
 Return a normalized decision, reason code, request ID, and per-check evidence. Do not treat HTTP 200 alone as approval; Cleanverse uses business codes inside successful HTTP responses.
 
 
@@ -231,7 +240,7 @@ Hackathons are visual competitions. The judges cannot see backend API calls unle
 * **Live Event Logging:** When the user clicks "Transfer A-Token", run CleanGraph preflight before requesting the connected wallet signature.
 * **Visualizing the API:** As your backend pings the Cleanverse API, stream the logs to the right-side terminal in real-time:
 ```json
-[10:02:41] Intercepting TX: 50,000 $CG-RWA
+[10:02:41] Intercepting TX: 50,000 $TRWA
 [10:02:42] Cleanverse API -> /verify_apass (Sender: 0x...) -> ELIGIBLE (code 4)
 [10:02:43] Cleanverse API -> /verify_apass (Receiver: 0x...) -> ELIGIBLE (code 4)
 [10:02:44] Cleanverse API -> /atoken/rules -> OK (tier and country rules loaded)
@@ -242,7 +251,7 @@ Hackathons are visual competitions. The judges cannot see backend API calls unle
 ```
 
 
-* **The Failure State:** Switch the demo to Wallet B, whose A-Pass attributes do not satisfy the A-Token rule. Show the same flow, but stop before wallet signing and display the documented `verify_apass` result plus a normalized CleanGraph reason.
+* **The Failure State:** Switch the recipient to Wallet B. Its active A-Pass has the required investor mapping but country `BR`, which is outside the `US`/`GB`/`DE`/`SG` allowlist. Show the same flow, but stop before wallet signing and display the documented `verify_apass` result plus a normalized CleanGraph country-policy reason.
 
 ---
 

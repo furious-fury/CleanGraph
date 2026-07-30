@@ -1,7 +1,7 @@
 # CleanGraph Implementation Plan
 
-**Status:** Draft v0.1  
-**Depends on:** `PRD.md` open product decisions  
+**Status:** Draft v0.2
+**Depends on:** external Cleanverse and Monad prerequisites in `tasklist.md`
 **Technical source:** Cleanverse Cooperate API v5.6
 
 ## 1. Implementation Objective
@@ -16,6 +16,22 @@ Build a Vite and React frontend plus a Node.js and TypeScript backend that:
 
 Deployment is intentionally scheduled as the final phase. The intended targets
 are Vercel for the frontend and the team's VPS for the backend.
+
+### 1.1 Confirmed MVP configuration
+
+- Underlying asset: demo beneficial interest in a fictional portfolio of
+  short-term United States Treasury bills
+- Token: `Tokenized Real-World Asset` (`TRWA`)
+- Decimals and supply: 18 decimals and `1,000,000 TRWA`
+- Primary customer: regulated traditional-finance institutions
+- Primary operator: RWA issuer, treasury, or compliance operations staff
+- Investor mapping: A-Pass group `Institutional Investor` and subgroup
+  `Accredited Investor`, with exact sandbox identifiers still to be confirmed
+- Country allowlist: `US`, `GB`, `DE`, and `SG`
+- Wallet A: required investor mapping and country `GB`
+- Wallet B: same investor mapping and country `BR`, causing only the country
+  rule to fail
+- CleanGraph amount cap: excluded from the MVP
 
 ## 2. Proposed Repository Architecture
 
@@ -74,16 +90,11 @@ Responsibilities:
 - encrypt protected Cleanverse request bodies;
 - normalize Cleanverse envelopes and business codes;
 - orchestrate sender and recipient verification;
-- apply optional CleanGraph amount rules;
 - emit sanitized progress events; and
 - query post-settlement evidence.
 
-Recommended framework for the hackathon: Hono on the Node.js adapter with Zod
-validation. Its typed RPC client can share route contracts directly with the
-Vite frontend. Fastify is the preferred alternative when the team values a
-more Node-specific plugin system, built-in structured logging, and schema-based
-response serialization over the smaller Hono surface. Express is supported but
-would require more manual validation and response typing.
+The selected framework is Hono on the Node.js adapter with Zod validation. Its
+typed RPC client can share route contracts directly with the Vite frontend.
 
 ### 3.3 Cleanverse client package
 
@@ -275,8 +286,7 @@ The decision pipeline is:
 2. Verify the sender with `verify_apass`.
 3. Verify the recipient with `verify_apass`.
 4. Load A-Token rules for display and evidence.
-5. Apply the optional CleanGraph per-transfer amount limit.
-6. Return `approved: true` only when every required check passes.
+5. Return `approved: true` only when every required check passes.
 
 Example normalized denial codes:
 
@@ -285,7 +295,6 @@ Example normalized denial codes:
 - `RECIPIENT_APASS_MISSING`
 - `SENDER_NOT_ELIGIBLE`
 - `RECIPIENT_NOT_ELIGIBLE`
-- `AMOUNT_LIMIT_EXCEEDED`
 - `CLEANVERSE_UNAVAILABLE`
 
 CleanGraph should not claim the specific underlying reason for result code `3`
@@ -332,7 +341,6 @@ an approved requirement needs persistence.
 - AES request encryption against a known vector
 - Cleanverse envelope parsing
 - `verify_apass` result-code mapping
-- amount-rule edge cases
 - decimal amount conversion
 - secret redaction
 
@@ -365,7 +373,8 @@ an approved requirement needs persistence.
 - Confirm the API ID has Issue Member permissions.
 - Obtain the A-Token ABI and role/mint instructions.
 - Confirm Monad sandbox RPC and explorer details.
-- Select the RWA and exact compliance attributes.
+- Confirm the exact Cleanverse sandbox identifiers for the logical investor
+  group and subgroup.
 
 ### Phase 1: Workspace and shared contracts
 
@@ -383,9 +392,10 @@ an approved requirement needs persistence.
 ### Phase 3: RWA and identity preparation
 
 - Generate or confirm demo A-Passes.
-- Launch the Monad A-Token with its initial rule.
+- Launch `TRWA` with 18 decimals, the country allowlist, and the confirmed
+  investor rule.
 - Poll to `ISSUED`.
-- Grant `MINTER_ROLE` and mint the demo supply.
+- Grant `MINTER_ROLE` and mint `1,000,000 TRWA`.
 - Record only non-secret addresses and transaction hashes.
 
 ### Phase 4: Orchestration API
@@ -393,7 +403,6 @@ an approved requirement needs persistence.
 - Implement preflight and evidence routes.
 - Add sender/recipient verification.
 - Add A-Token rule retrieval.
-- Add optional CleanGraph amount enforcement.
 - Add safe structured logging.
 
 ### Phase 5: Frontend
@@ -432,15 +441,13 @@ an approved requirement needs persistence.
 - **Indexer/report delay:** Evidence may appear after settlement.
 - **Wallet library compatibility:** Privy must support the selected Monad
   configuration.
-- **Unsupported claims:** OFAC screening, accreditation, and amount limits must
-  be described using their actual implemented mappings.
+- **Unsupported claims:** The demo accreditation labels and country allowlist
+  must not be described as legal advice, production screening, or an OFAC
+  integration.
 
 ## 12. Remaining Technical Decisions
 
-1. Hono or Fastify
-2. pnpm, npm, or another workspace package manager
-3. Privy versus another wallet library
-4. Polling response versus Server-Sent Events for terminal progress
-5. Whether a database is required
-6. Whether deterministic demo fixtures are permitted
-7. Which Cleanverse contract artifacts and Monad environment are available
+1. Privy versus another wallet library
+2. Polling response versus Server-Sent Events for terminal progress
+3. Whether deterministic demo fixtures are permitted
+4. Which Cleanverse contract artifacts and Monad environment are available
