@@ -1,6 +1,21 @@
 import { z } from "zod";
 
 import {
+  createQueryAPassResultSchema,
+  createQueryATokenRulesResultSchema,
+  createVerifyAPassForTokenResultSchema,
+  parseQueryAPassInput,
+  parseQueryATokenRulesInput,
+  parseVerifyAPassForTokenInput,
+  type CleanverseRequestOptions,
+  type QueryAPassInput,
+  type QueryAPassResult,
+  type QueryATokenRulesInput,
+  type QueryATokenRulesResult,
+  type VerifyAPassForTokenInput,
+  type VerifyAPassForTokenResult,
+} from "./compliance.js";
+import {
   resolveCleanverseClientConfig,
   type CleanverseClientConfig,
   type ResolvedCleanverseClientConfig,
@@ -56,6 +71,64 @@ export class CleanverseClient {
 
   constructor(config: CleanverseClientConfig) {
     this.#config = resolveCleanverseClientConfig(config);
+  }
+
+  async queryAPass(
+    input: QueryAPassInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<QueryAPassResult>> {
+    const parsedInput = parseQueryAPassInput(input);
+
+    return this.requestPlain({
+      path: "query_apass",
+      method: "POST",
+      body: parsedInput,
+      dataSchema: createQueryAPassResultSchema(parsedInput),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
+  }
+
+  async queryATokenRules(
+    input: QueryATokenRulesInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<QueryATokenRulesResult>> {
+    const parsedInput = parseQueryATokenRulesInput(input);
+
+    return this.requestPlain({
+      path: "atoken/rules",
+      method: "POST",
+      body: {
+        chain: parsedInput.chain,
+        atoken_address: parsedInput.atokenAddress,
+      },
+      dataSchema: createQueryATokenRulesResultSchema(parsedInput),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
+  }
+
+  async verifyAPassForToken(
+    input: VerifyAPassForTokenInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<VerifyAPassForTokenResult>> {
+    const parsedInput = parseVerifyAPassForTokenInput(input);
+
+    return this.requestPlain({
+      path: "verify_apass",
+      method: "POST",
+      body: {
+        chain: parsedInput.chain,
+        atoken: parsedInput.atokenAddress,
+        address: parsedInput.address,
+      },
+      dataSchema: createVerifyAPassForTokenResultSchema(parsedInput),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
   }
 
   protected requestPlain<T>(

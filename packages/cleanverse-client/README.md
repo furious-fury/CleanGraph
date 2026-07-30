@@ -54,8 +54,51 @@ HTTP status alone is not business success. A successful Cleanverse envelope
 must contain top-level code `"0000"`. Endpoint data is validated separately
 with Zod.
 
+## Compliance reads
+
+The client exposes the three plain-JSON reads used by CleanGraph preflight:
+
+```ts
+const apass = await client.queryAPass(
+  {
+    chain: "monad",
+    address: "0x1111111111111111111111111111111111111111",
+  },
+  { requestId: incomingRequestId },
+);
+
+const rules = await client.queryATokenRules({
+  chain: "monad",
+  atokenAddress: "0x2222222222222222222222222222222222222222",
+});
+
+const verification = await client.verifyAPassForToken({
+  chain: "monad",
+  atokenAddress: "0x2222222222222222222222222222222222222222",
+  address: "0x1111111111111111111111111111111111111111",
+});
+```
+
+Supplying a valid request ID propagates the API correlation ID through
+Cleanverse and the returned `CleanverseResponse`. If omitted, the client
+generates one.
+
+Successful results use normalized camelCase fields. Unknown response fields
+are discarded, submitted address casing is preserved, and response identifiers
+must match the request case-insensitively.
+
+`verifyAPassForToken` retains the documented numeric verification code and
+adds a named outcome:
+
+- `1`: `ATOKEN_NOT_FOUND`
+- `2`: `APASS_MISSING`
+- `3`: `APASS_NOT_ELIGIBLE`
+- `4`: `ELIGIBLE`
+
+The Cleanverse result is authoritative. The client does not infer a more
+specific denial reason from A-Pass attributes or A-Token rules.
+
 ## Current boundary
 
-This package intentionally exposes no Cleanverse endpoint methods yet.
-Read-only A-Pass, A-Token rule, eligibility, transaction, and report methods
-will be added in the next backend PR.
+Transaction lookup, report download, write endpoints, and Hono orchestration
+are intentionally deferred.
