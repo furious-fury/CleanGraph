@@ -76,13 +76,13 @@ parallel-safe.
 
 ## 4. Cleanverse Read Endpoints
 
-1. [ ] Implement `queryAPass`.
-2. [ ] Implement `queryATokenRules`.
-3. [ ] Implement `verifyAPassForToken`.
-4. [ ] Map verification code `1` to `ATOKEN_NOT_FOUND`.
-5. [ ] Map verification code `2` to `APASS_MISSING`.
-6. [ ] Map verification code `3` to `APASS_NOT_ELIGIBLE`.
-7. [ ] Map verification code `4` to `ELIGIBLE`.
+1. [x] Implement `queryAPass`.
+2. [x] Implement `queryATokenRules`.
+3. [x] Implement `verifyAPassForToken`.
+4. [x] Map verification code `1` to `ATOKEN_NOT_FOUND`.
+5. [x] Map verification code `2` to `APASS_MISSING`.
+6. [x] Map verification code `3` to `APASS_NOT_ELIGIBLE`.
+7. [x] Map verification code `4` to `ELIGIBLE`.
 8. [ ] Implement `queryTransactions`.
 9. [ ] Implement `downloadTravelRuleReport`.
 10. [ ] Add sanitized fixtures for every result state.
