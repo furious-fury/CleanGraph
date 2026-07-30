@@ -2,6 +2,19 @@ export {
   CleanverseClient,
   type CleanverseResponse,
 } from "./client.js";
+export type {
+  APassStatus,
+  APassVerificationCode,
+  APassVerificationOutcome,
+  ATokenRule,
+  CleanverseRequestOptions,
+  QueryAPassInput,
+  QueryAPassResult,
+  QueryATokenRulesInput,
+  QueryATokenRulesResult,
+  VerifyAPassForTokenInput,
+  VerifyAPassForTokenResult,
+} from "./compliance.js";
 export {
   CLEANVERSE_SANDBOX_BASE_URL,
   DEFAULT_CLEANVERSE_TIMEOUT_MS,
