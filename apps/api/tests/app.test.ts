@@ -1,3 +1,4 @@
+import { preflightErrorResponseSchema } from "@cleangraph/shared";
 import { describe, expect, it } from "vitest";
 
 import { app } from "../src/app.js";
@@ -47,32 +48,78 @@ describe("CleanGraph API", () => {
       }),
     });
     const body = await response.json();
+    const parsedBody = preflightErrorResponseSchema.safeParse(body);
 
     expect(response.status).toBe(422);
+    expect(parsedBody.success).toBe(true);
     expect(body).toMatchObject({
       error: {
         code: "VALIDATION_ERROR",
       },
+      checks: [],
     });
   });
 
-  it("returns an explicit placeholder until Cleanverse is connected", async () => {
+  it("rejects invalid JSON with a contract-compliant validation error", async () => {
     const response = await app.request("/api/v1/compliance/preflight", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+      },
+      body: "{",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(preflightErrorResponseSchema.safeParse(body).success).toBe(true);
+    expect(body).toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+      },
+      checks: [],
+    });
+  });
+
+  it("does not echo sensitive invalid input in validation errors", async () => {
+    const sensitiveMarker = "sensitive-marker-that-must-not-be-returned";
+    const response = await app.request("/api/v1/compliance/preflight", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...validIntent,
+        unexpectedSecret: sensitiveMarker,
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(JSON.stringify(body)).not.toContain(sensitiveMarker);
+  });
+
+  it("returns an explicit placeholder until Cleanverse is connected", async () => {
+    const requestId = "123e4567-e89b-42d3-a456-426614174000";
+    const response = await app.request("/api/v1/compliance/preflight", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Request-ID": requestId,
       },
       body: JSON.stringify(validIntent),
     });
     const body = await response.json();
 
     expect(response.status).toBe(501);
+    expect(response.headers.get("X-Request-ID")).toBe(requestId);
+    expect(preflightErrorResponseSchema.safeParse(body).success).toBe(true);
     expect(body).toMatchObject({
-      approved: false,
-      status: "not_implemented",
+      requestId,
       error: {
         code: "PREFLIGHT_NOT_IMPLEMENTED",
       },
+      checks: [],
     });
+    expect(body).not.toHaveProperty("approved", true);
   });
 });

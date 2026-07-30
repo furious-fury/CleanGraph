@@ -36,7 +36,7 @@ parallel-safe.
 3. [x] Initialize `apps/web` with Vite, React, and TypeScript.
 4. [x] Initialize `apps/api` with Node.js and TypeScript.
 5. [x] Select and configure Hono.
-6. [ ] Initialize `packages/shared`.
+6. [x] Initialize `packages/shared`.
 7. [ ] Initialize `packages/cleanverse-client`.
 8. [ ] Initialize `packages/contracts`.
 9. [x] Add TypeScript workspace aliases for the frontend.
@@ -49,15 +49,15 @@ parallel-safe.
 
 ## 2. Shared Types and Configuration
 
-1. [ ] Define environment-variable schemas.
-2. [ ] Define EVM address and transaction-intent schemas.
-3. [ ] Define CleanGraph decision and check schemas.
-4. [ ] Define normalized denial codes.
+1. [x] Define environment-variable schemas.
+2. [x] Define EVM address and transaction-intent schemas.
+3. [x] Define CleanGraph decision and check schemas.
+4. [x] Define normalized denial codes.
 5. [ ] Define compliance-terminal event types.
 6. [ ] Define A-Token application states.
 7. [ ] Define transaction-evidence states.
-8. [ ] Export shared types for the web and API apps.
-9. [ ] Add schema validation tests.
+8. [x] Export shared types for the web and API apps.
+9. [x] Add schema validation tests.
 
 ## 3. Cleanverse Client Foundation
 

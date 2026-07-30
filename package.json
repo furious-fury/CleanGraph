@@ -8,8 +8,8 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present run build",
-    "dev": "pnpm --parallel --filter @cleangraph/api --filter @cleangraph/web dev",
-    "dev:api": "pnpm --filter @cleangraph/api dev",
+    "dev": "pnpm --filter @cleangraph/shared build && pnpm --parallel --filter @cleangraph/shared --filter @cleangraph/api --filter @cleangraph/web dev",
+    "dev:api": "pnpm --filter @cleangraph/shared build && pnpm --parallel --filter @cleangraph/shared --filter @cleangraph/api dev",
     "dev:web": "pnpm --filter @cleangraph/web dev",
     "lint": "pnpm -r --if-present run lint",
     "test": "pnpm -r --if-present run test",
