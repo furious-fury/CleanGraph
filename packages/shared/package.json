@@ -1,33 +1,26 @@
 {
-  "name": "@cleangraph/api",
+  "name": "@cleangraph/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/app.ts",
-      "default": "./dist/app.js"
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "TMPDIR=/tmp tsx watch src/index.ts",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "lint": "oxlint src tests",
-    "pretest": "pnpm --filter @cleangraph/shared build",
-    "start": "node dist/index.js",
     "test": "NODE_ENV=test TMPDIR=/tmp vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@cleangraph/shared": "workspace:*",
-    "@hono/node-server": "^2.0.12",
-    "hono": "^4.12.32",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
     "oxlint": "^1.76.0",
-    "tsx": "^4.23.1",
     "typescript": "~6.0.3",
     "vitest": "^4.1.10"
   }
