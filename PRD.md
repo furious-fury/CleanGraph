@@ -1,6 +1,6 @@
 # CleanGraph Product Requirements Document
 
-**Status:** Draft v0.1  
+**Status:** Draft v0.2
 **Track:** Track 1 — Real-World Assets (RWA)  
 **Technical source:** Cleanverse Cooperate API v5.6, July 21, 2026  
 **Last updated:** July 30, 2026
@@ -12,6 +12,10 @@ transferring tokenized real-world assets on Monad. It combines Cleanverse
 A-Pass identity records, A-Token asset rules, pre-transfer eligibility checks,
 on-chain settlement, and downloadable transaction evidence in one operator
 workflow.
+
+For the MVP, the A-Token represents a demo beneficial interest in a fictional
+portfolio of short-term United States Treasury bills. It does not create a
+real security, ownership claim, or right to actual Treasury assets.
 
 The hackathon demonstration will show the same RWA transfer attempted with two
 different counterparties:
@@ -33,9 +37,12 @@ workflow.
 
 ## 3. Target Users
 
-### Primary user
+### Primary customer and user
 
-An RWA issuer or institutional operations user who:
+The primary customer is a regulated traditional-finance institution that must
+keep tokenized-asset activity compliant with applicable law. The primary
+application user is an RWA issuer, institutional treasury operator, or
+compliance operator who:
 
 - launches or monitors a compliant A-Token;
 - reviews its eligibility rules;
@@ -47,7 +54,28 @@ An RWA issuer or institutional operations user who:
 An eligible investor or treasury wallet that connects to the application,
 reviews a transaction, and signs an approved A-Token transfer.
 
-The exact primary customer persona requires partner confirmation.
+### Confirmed MVP asset and policy
+
+- Asset description: demo beneficial interest in a fictional portfolio of
+  short-term United States Treasury bills
+- Token name: `Tokenized Real-World Asset`
+- Token symbol: `TRWA`; product copy may display it as `$TRWA`
+- Token decimals: `18`
+- Demo supply: `1,000,000 TRWA`
+- Investor mapping: A-Pass group `Institutional Investor` and subgroup
+  `Accredited Investor`; the exact sandbox identifiers must be discovered
+  before issuance
+- Country policy: allowlist using ISO 3166-1 alpha-2 codes `US`, `GB`, `DE`,
+  and `SG`
+- Wallet A: active, unexpired A-Pass with the required investor mapping and
+  country `GB`
+- Wallet B: active, unexpired A-Pass with the same investor mapping and country
+  `BR`; it fails only the country rule
+- Additional CleanGraph transfer cap: none for the MVP
+
+The country list and accreditation labels are demonstration policy choices.
+They must not be presented as legal advice, a sanctions list, or a production
+eligibility determination.
 
 ## 4. Goals
 
@@ -56,7 +84,7 @@ The exact primary customer persona requires partner confirmation.
 - Verify both transfer counterparties before requesting a wallet signature.
 - Make each compliance check and result visible in a live terminal.
 - Complete one real A-Token transfer on Monad.
-- block one ineligible transfer before wallet signing.
+- Block one ineligible transfer before wallet signing.
 - Provide a transaction record and downloadable report when supported by the
   Cleanverse sandbox.
 - Keep all Cleanverse credentials and encryption operations on the backend.
@@ -106,20 +134,18 @@ Cleanverse application flow is asynchronous.
 3. CleanGraph calls `POST /verify_apass` for the sender.
 4. CleanGraph calls `POST /verify_apass` for the recipient.
 5. CleanGraph loads the displayed A-Token policy from `POST /atoken/rules`.
-6. CleanGraph evaluates any application-level amount rule.
-7. When every check passes, the frontend requests a wallet signature.
-8. The A-Token transfer is broadcast to Monad.
-9. CleanGraph displays the confirmed transaction hash.
-10. CleanGraph queries `POST /query_txs`.
-11. CleanGraph requests `POST /download_travel_rule` and displays the
+6. When every check passes, the frontend requests a wallet signature.
+7. The A-Token transfer is broadcast to Monad.
+8. CleanGraph displays the confirmed transaction hash.
+9. CleanGraph queries `POST /query_txs`.
+10. CleanGraph requests `POST /download_travel_rule` and displays the
     time-limited report link when available.
 
 ### 6.4 Block an ineligible transfer
 
 1. The user selects the ineligible demo wallet or recipient.
 2. CleanGraph runs the same preflight sequence.
-3. A `verify_apass` result other than `data.code: 4`, or a failed CleanGraph
-   amount rule, produces a denial.
+3. A `verify_apass` result other than `data.code: 4` produces a denial.
 4. The terminal shows the failed check and normalized reason.
 5. CleanGraph does not request a wallet signature or broadcast a transaction.
 
@@ -157,15 +183,13 @@ Cleanverse application flow is asynchronous.
 - `data.code` values `1`, `2`, and `3` must be mapped to clear denial reasons.
 - HTTP 200 alone must never be treated as approval.
 
-### FR-5: CleanGraph amount policy
+### FR-5: Transfer amount handling
 
-- If enabled, CleanGraph must compare the requested amount with a configured
-  per-transfer maximum.
-- A limit failure must block the transfer before signing.
-- The UI must label the check as a CleanGraph policy rather than a Cleanverse
-  A-Token rule.
-- Daily or cumulative limits require persistent storage and remain optional
-  until explicitly approved.
+- CleanGraph must validate that the transfer amount is positive and can be
+  represented safely using the A-Token's 18 decimals.
+- CleanGraph will not enforce an additional per-transfer, daily, or cumulative
+  amount limit in the MVP.
+- Product copy must not claim that Cleanverse provides a native amount limit.
 
 ### FR-6: Settlement
 
@@ -201,10 +225,10 @@ Cleanverse application flow is asynchronous.
 | Product concept | Documented Cleanverse representation |
 | --- | --- |
 | KYC verified | A-Pass exists, is active, unexpired, and passes `verify_apass` |
-| Accredited investor | Team-defined mapping to A-Pass tier/sub-tier or group/sub-group |
-| Permitted jurisdiction | A-Pass country tags evaluated by A-Token country allow/deny rules |
+| Accredited investor | Demo mapping to A-Pass group `Institutional Investor` and subgroup `Accredited Investor`; exact sandbox IDs remain to be confirmed |
+| Permitted jurisdiction | Country allowlist `US`, `GB`, `DE`, and `SG`, evaluated using A-Pass country tags |
 | Frozen or restricted wallet | A-Pass status and `verify_apass` result |
-| Transaction amount limit | CleanGraph middleware rule; not documented in the A-Token rule object |
+| Transaction amount limit | Excluded from the MVP; not documented in the A-Token rule object |
 | Asset transfer permission | `POST /verify_apass` with `data.code: 4` |
 | Audit evidence | `POST /query_txs` and `POST /download_travel_rule` |
 
@@ -246,11 +270,13 @@ provides additional documentation.
 
 ## 12. MVP Success Criteria
 
-- An A-Token representing the selected RWA reaches `ISSUED` on Monad.
+- The `TRWA` A-Token representing the fictional Treasury-bill portfolio reaches
+  `ISSUED` on Monad with 18 decimals and a demo supply of `1,000,000 TRWA`.
 - The demo shows its documented A-Token rule.
 - Wallet A receives `verify_apass` result code `4`.
 - An eligible A-Token transfer confirms on Monad.
-- Wallet B is denied before a wallet signature is requested.
+- Wallet B, using country tag `BR`, is denied by the country allowlist before a
+  wallet signature is requested.
 - The UI shows a clear, ordered compliance trace for both scenarios.
 - The successful transfer displays an indexed transaction and report link when
   the sandbox supports them.
@@ -266,15 +292,10 @@ provides additional documentation.
 - A live URL or testnet deployment is recommended.
 - Submission is sent to the organizer-provided email address.
 
-## 14. Open Product Decisions
+## 14. Remaining Product Decisions
 
-1. What exact RWA will the A-Token represent?
-2. Who is the primary customer persona?
-3. What token name, symbol, decimals, and demo supply should be used?
-4. Which A-Pass tier or group represents an accredited investor?
-5. Which countries should the A-Token allow or deny?
-6. What attributes should make Wallet B ineligible?
-7. Is a per-transfer amount limit required, and what is the amount?
-8. Should deterministic demo mode be included?
-9. What exact information should be emphasized on the report screen?
-10. Who owns each implementation and submission responsibility?
+1. Should deterministic demo mode be included?
+2. What exact information should be emphasized on the report screen?
+3. Who owns each implementation and submission responsibility?
+4. Which Cleanverse sandbox tier/group IDs correspond to the confirmed logical
+   investor mapping?
