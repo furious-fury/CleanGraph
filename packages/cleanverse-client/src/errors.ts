@@ -6,6 +6,7 @@ export type CleanverseErrorJson = {
   requestId?: string;
   status?: number;
   cleanverseCode?: string;
+  applicationStatus?: string;
 };
 
 type CleanverseErrorOptions = {
@@ -14,6 +15,7 @@ type CleanverseErrorOptions = {
   requestId?: string;
   status?: number;
   cleanverseCode?: string;
+  applicationStatus?: string;
 };
 
 export class CleanverseError extends Error {
@@ -22,6 +24,7 @@ export class CleanverseError extends Error {
   readonly requestId: string | undefined;
   readonly status: number | undefined;
   readonly cleanverseCode: string | undefined;
+  readonly applicationStatus: string | undefined;
 
   constructor(message: string, options: CleanverseErrorOptions) {
     super(message);
@@ -31,6 +34,7 @@ export class CleanverseError extends Error {
     this.requestId = options.requestId;
     this.status = options.status;
     this.cleanverseCode = options.cleanverseCode;
+    this.applicationStatus = options.applicationStatus;
   }
 
   toJSON(): CleanverseErrorJson {
@@ -51,6 +55,10 @@ export class CleanverseError extends Error {
 
     if (this.cleanverseCode !== undefined) {
       result.cleanverseCode = this.cleanverseCode;
+    }
+
+    if (this.applicationStatus !== undefined) {
+      result.applicationStatus = this.applicationStatus;
     }
 
     return result;
@@ -115,5 +123,19 @@ export class CleanverseBusinessError extends CleanverseError {
       requestId,
       cleanverseCode,
     });
+  }
+}
+
+export class CleanversePollingExhaustedError extends CleanverseError {
+  constructor(requestId: string, applicationStatus: string) {
+    super(
+      "The Cleanverse application did not reach a terminal state within the polling limit.",
+      {
+        code: "CLEANVERSE_POLLING_EXHAUSTED",
+        retryable: true,
+        requestId,
+        applicationStatus,
+      },
+    );
   }
 }
