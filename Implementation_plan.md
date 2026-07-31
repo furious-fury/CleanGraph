@@ -49,7 +49,6 @@ Completed and merged:
 
 Not yet implemented:
 
-- transaction-query and report-download client methods;
 - protected asset-launch/application routes and the evidence route;
 - the contracts package, Monad configuration, A-Token ABI helpers, balance
   reads, minting support, and transfer execution;
@@ -425,13 +424,12 @@ they block live provisioning and settlement.
   event types, application-state contracts for browser/API use, and
   transaction-evidence contracts.
 
-### Phase 2: Cleanverse client — issuance and preflight complete
+### Phase 2: Cleanverse client — MVP methods complete
 
 - Completed: authentication, request IDs, encryption, safe errors, A-Pass
   generation, compliance reads, A-Token launch/status/polling, mocked v5.6
-  coverage, and one read-only sandbox connectivity check.
-- Remaining: `queryTransactions` and `downloadTravelRuleReport`, including
-  sanitized fixtures and index-delay states.
+  coverage, transaction-index queries, time-limited report downloads, empty
+  index-result handling, and one read-only sandbox connectivity check.
 
 ### Phase 3: RWA and identity preparation — not started live
 
@@ -478,7 +476,7 @@ they block live provisioning and settlement.
 
 Use a separate branch and PR for each independently reviewable unit:
 
-1. `feat/cleanverse-transaction-evidence`
+1. `feat/cleanverse-transaction-evidence` (this PR)
    - Add `queryTransactions` and `downloadTravelRuleReport`.
    - Normalize indexed, delayed, unsupported, and malformed results.
 2. `feat/server-asset-lifecycle`

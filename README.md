@@ -13,8 +13,9 @@ Cleanverse A-Pass verification and A-Token rule reads.
 
 The Node-only Cleanverse client supports secure transport, A-Pass generation,
 A-Pass and A-Token compliance reads, encrypted A-Token launch, application
-status reads, and bounded status polling. The launch client is not exposed
-through a public Hono route, and no live A-Pass or A-Token records have been
+status reads, bounded status polling, transaction-index queries, and
+time-limited report downloads. The launch and evidence clients are not exposed
+through public Hono routes, and no live A-Pass or A-Token records have been
 created by the repository.
 
 The frontend is currently a static visual shell. Wallet connection, API
@@ -66,16 +67,15 @@ The critical path is:
 
 1. Confirm Cleanverse Issue Member access, group/subgroup codes, Monad network
    details, the A-Token ABI, and role/mint instructions.
-2. Add transaction-query and report-download client methods.
-3. Add protected asset-lifecycle and transaction-evidence API routes.
-4. Build the contracts package and Monad transfer helpers.
-5. Provision the two demo A-Passes, issue `TRWA`, grant `MINTER_ROLE`, and mint
+2. Add protected asset-lifecycle and transaction-evidence API routes.
+3. Build the contracts package and Monad transfer helpers.
+4. Provision the two demo A-Passes, issue `TRWA`, grant `MINTER_ROLE`, and mint
    `1,000,000 TRWA`.
-6. Connect the frontend to preflight, render ordered compliance checks, and
+5. Connect the frontend to preflight, render ordered compliance checks, and
    add the selected Monad wallet provider.
-7. Prove an eligible transfer confirms and the Wallet B scenario stops before
+6. Prove an eligible transfer confirms and the Wallet B scenario stops before
    signing.
-8. Complete evidence/report states, end-to-end tests, deployment, and
+7. Complete evidence/report states, end-to-end tests, deployment, and
    submission.
 
 See [PRD.md](./PRD.md), [Implementation_plan.md](./Implementation_plan.md), and

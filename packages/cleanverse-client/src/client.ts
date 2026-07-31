@@ -49,6 +49,16 @@ import {
   CleanversePollingExhaustedError,
   CleanverseTimeoutError,
 } from "./errors.js";
+import {
+  createDownloadTravelRuleReportResultSchema,
+  createQueryTransactionsResultSchema,
+  parseDownloadTravelRuleReportInput,
+  parseQueryTransactionsInput,
+  type DownloadTravelRuleReportInput,
+  type DownloadTravelRuleReportResult,
+  type QueryTransactionsInput,
+  type QueryTransactionsResult,
+} from "./evidence.js";
 
 const cleanverseEnvelopeSchema = z
   .object({
@@ -263,6 +273,69 @@ export class CleanverseClient {
         address: parsedInput.address,
       },
       dataSchema: createVerifyAPassForTokenResultSchema(parsedInput),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
+  }
+
+  async queryTransactions(
+    input: QueryTransactionsInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<QueryTransactionsResult>> {
+    const parsedInput = parseQueryTransactionsInput(input);
+
+    return this.requestPlain({
+      path: "query_txs",
+      method: "POST",
+      body: {
+        chain: parsedInput.chain,
+        address: parsedInput.address,
+        ...(parsedInput.symbol === undefined
+          ? {}
+          : { symbol: parsedInput.symbol }),
+        ...(parsedInput.startTime === undefined
+          ? {}
+          : { startTime: parsedInput.startTime }),
+        ...(parsedInput.endTime === undefined
+          ? {}
+          : { endTime: parsedInput.endTime }),
+        ...(parsedInput.transactionHash === undefined
+          ? {}
+          : { txHash: parsedInput.transactionHash }),
+        ...(parsedInput.type === undefined
+          ? {}
+          : { type: parsedInput.type }),
+        page: parsedInput.page,
+        pageSize: parsedInput.pageSize,
+      },
+      dataSchema: createQueryTransactionsResultSchema(parsedInput),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
+  }
+
+  async downloadTravelRuleReport(
+    input: DownloadTravelRuleReportInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<DownloadTravelRuleReportResult>> {
+    const parsedInput = parseDownloadTravelRuleReportInput(input);
+
+    return this.requestPlain({
+      path: "download_travel_rule",
+      method: "POST",
+      body: {
+        ...(parsedInput.customerId === undefined
+          ? {}
+          : { customerId: parsedInput.customerId }),
+        ...(parsedInput.cvRecordId === undefined
+          ? {}
+          : { cvRecordId: parsedInput.cvRecordId }),
+        txHash: parsedInput.transactionHash,
+        wallet: parsedInput.wallet,
+      },
+      dataSchema: createDownloadTravelRuleReportResultSchema(),
       ...(options.requestId === undefined
         ? {}
         : { requestId: options.requestId }),

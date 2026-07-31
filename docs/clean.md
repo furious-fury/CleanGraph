@@ -42,8 +42,8 @@ compliance-terminal shell but is not connected to a wallet, the API, or Monad.
 The remaining MVP is the live system around that foundation:
 
 1. confirm external Cleanverse and Monad contract prerequisites;
-2. add transaction index and report client/API support;
-3. expose protected asset lifecycle routes;
+2. expose protected asset lifecycle and transaction-evidence routes;
+3. add bounded transaction-index polling in the evidence service;
 4. implement the Monad contracts package;
 5. provision both A-Passes and the issued/minted `TRWA` token;
 6. connect preflight, terminal rendering, wallet signing, and settlement in the
@@ -217,7 +217,7 @@ The workspace, Cleanverse client, preflight orchestration, and frontend shell
 are complete. The remaining work should be delivered as small PRs in this
 order:
 
-1. Cleanverse transaction evidence client
+1. Cleanverse transaction evidence client (implemented in the current PR)
 2. Protected asset lifecycle API
 3. Monad contract foundation
 4. Transaction evidence API
@@ -251,8 +251,9 @@ The core Hono preflight endpoint already accepts a transaction intent, verifies
 both counterparties, loads the A-Token rules, and returns an ordered decision.
 The remaining backend work is:
 
-1. **Add transaction evidence methods:** Implement `queryTransactions` and
-   `downloadTravelRuleReport` with index-delay handling.
+1. **Use the transaction evidence methods:** `queryTransactions` and
+   `downloadTravelRuleReport` are implemented in the client. Add bounded
+   index-delay handling in the future Hono evidence service.
 
 2. **Expose asset lifecycle routes:** Add protected launch and application
    status endpoints backed by the implemented Cleanverse client.

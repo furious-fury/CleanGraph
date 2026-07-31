@@ -34,6 +34,14 @@ export type {
   VerifyAPassForTokenInput,
   VerifyAPassForTokenResult,
 } from "./compliance.js";
+export type {
+  CleanverseTransaction,
+  DownloadTravelRuleReportInput,
+  DownloadTravelRuleReportResult,
+  DownloadTravelRuleReportWallet,
+  QueryTransactionsInput,
+  QueryTransactionsResult,
+} from "./evidence.js";
 export {
   CLEANVERSE_SANDBOX_BASE_URL,
   DEFAULT_CLEANVERSE_TIMEOUT_MS,

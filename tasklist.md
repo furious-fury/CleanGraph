@@ -12,19 +12,18 @@ numbered sections below.
 
 1. [ ] Resolve Issue Member access, Cleanverse group codes, Monad network
    values, the A-Token ABI, and role/mint instructions.
-2. [ ] Implement Cleanverse transaction lookup and report download.
-3. [ ] Add protected asset-lifecycle and transaction-evidence API routes.
-4. [ ] Initialize the contracts package and implement Monad balance, transfer,
+2. [ ] Add protected asset-lifecycle and transaction-evidence API routes.
+3. [ ] Initialize the contracts package and implement Monad balance, transfer,
    receipt, and explorer helpers.
-5. [ ] Provision Wallet A, Wallet B, and the issued/minted `TRWA` sandbox
+4. [ ] Provision Wallet A, Wallet B, and the issued/minted `TRWA` sandbox
    state.
-6. [ ] Connect the frontend to shared contracts and the preflight API, then
+5. [ ] Connect the frontend to shared contracts and the preflight API, then
    render the ordered compliance terminal.
-7. [ ] Connect a Monad wallet and complete the approved transfer flow while
+6. [ ] Connect a Monad wallet and complete the approved transfer flow while
    proving the denied flow stops before signing.
-8. [ ] Complete transaction evidence, end-to-end tests, secret scanning, and
-   demo hardening.
-9. [ ] Deploy to the VPS and Vercel, run production smoke tests, and finish the
+7. [ ] Complete transaction-evidence orchestration, end-to-end tests, secret
+   scanning, and demo hardening.
+8. [ ] Deploy to the VPS and Vercel, run production smoke tests, and finish the
    submission package.
 
 ## 0. Product Decisions and External Access
@@ -107,10 +106,10 @@ numbered sections below.
 5. [x] Map verification code `2` to `APASS_MISSING`.
 6. [x] Map verification code `3` to `APASS_NOT_ELIGIBLE`.
 7. [x] Map verification code `4` to `ELIGIBLE`.
-8. [ ] Implement `queryTransactions`.
-9. [ ] Implement `downloadTravelRuleReport`.
-10. [ ] Add sanitized fixtures for every result state.
-11. [ ] Test all methods with mocked v5.6 responses.
+8. [x] Implement `queryTransactions`.
+9. [x] Implement `downloadTravelRuleReport`.
+10. [x] Add sanitized fixtures for every implemented read-result state.
+11. [x] Test all implemented read methods with mocked v5.6 responses.
 12. [x] Run a sandbox read-endpoint smoke test.
 
 ## 5. A-Pass Setup Flow
