@@ -1,32 +1,35 @@
-# React + TypeScript + Vite
+# CleanGraph web application
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Vite, React, and TypeScript frontend for the CleanGraph RWA transfer demo. It
+uses Tailwind CSS, shadcn/ui, and Phosphor Icons.
 
-Currently, two official plugins are available:
+## Current state
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Implemented:
 
-## React Compiler
+- responsive application shell;
+- initial asset, recipient, and amount fields; and
+- static compliance-terminal layout.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Remaining:
 
-## Expanding the Oxlint configuration
+- choose and configure a Monad-compatible wallet provider;
+- add `@cleangraph/shared` and client-side validation;
+- connect `POST /api/v1/compliance/preflight`;
+- render ordered pending, approved, denied, and error checks;
+- request an A-Token signature only after approval;
+- show transaction confirmation, explorer, and evidence/report states; and
+- add frontend and end-to-end tests.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Development
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+From the repository root:
+
+```bash
+pnpm dev:web
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The default development URL is `http://localhost:5173`.
+
+The browser must never receive the Cleanverse API ID, API key, decoded AES
+key, plaintext identity data, or encrypted request bodies.

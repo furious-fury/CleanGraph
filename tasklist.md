@@ -1,8 +1,31 @@
 # CleanGraph Task List
 
-**Status:** Draft v0.2
+**Status:** Active v0.3
 **Rule:** Complete sections in order unless a task is explicitly marked as
 parallel-safe.
+**Last reconciled with code:** July 31, 2026
+
+## Remaining MVP Critical Path
+
+This summary is the build order. The detailed acceptance tasks remain in the
+numbered sections below.
+
+1. [ ] Resolve Issue Member access, Cleanverse group codes, Monad network
+   values, the A-Token ABI, and role/mint instructions.
+2. [ ] Implement Cleanverse transaction lookup and report download.
+3. [ ] Add protected asset-lifecycle and transaction-evidence API routes.
+4. [ ] Initialize the contracts package and implement Monad balance, transfer,
+   receipt, and explorer helpers.
+5. [ ] Provision Wallet A, Wallet B, and the issued/minted `TRWA` sandbox
+   state.
+6. [ ] Connect the frontend to shared contracts and the preflight API, then
+   render the ordered compliance terminal.
+7. [ ] Connect a Monad wallet and complete the approved transfer flow while
+   proving the denied flow stops before signing.
+8. [ ] Complete transaction evidence, end-to-end tests, secret scanning, and
+   demo hardening.
+9. [ ] Deploy to the VPS and Vercel, run production smoke tests, and finish the
+   submission package.
 
 ## 0. Product Decisions and External Access
 
@@ -21,7 +44,8 @@ parallel-safe.
    `BR`, so only the country rule fails.
 8. [x] Exclude a CleanGraph per-transfer amount limit from the MVP.
 9. [ ] Decide whether to include clearly labelled deterministic demo mode.
-10. [ ] Record team members and ownership areas.
+10. [x] Record the ownership split: project lead handles backend work and the
+    project partner handles frontend work.
 11. [ ] Confirm the sandbox IDs for the `Institutional Investor` and
     `Accredited Investor` mapping.
 12. [ ] Confirm the Cleanverse API ID has Issue Member permissions.
@@ -111,14 +135,16 @@ parallel-safe.
 4. [x] Implement `queryATokenApplication`.
 5. [x] Add bounded polling for application status.
 6. [x] Treat only `ISSUED` as success.
-7. [x] Display rejection and issuance-failure reasons safely.
-8. [ ] Submit the Monad A-Token launch request.
-9. [ ] Wait for the application to reach `ISSUED`.
-10. [ ] Record the issued A-Token address and transaction hash.
-11. [ ] Load and verify the on-chain A-Token rule.
-12. [ ] Grant `MINTER_ROLE` using the supplied contract instructions.
-13. [ ] Mint the demo supply.
-14. [ ] Verify Wallet A's A-Token balance.
+7. [x] Normalize rejection and issuance-failure reasons safely in the client.
+8. [ ] Display normalized rejection and issuance-failure reasons in the
+   operator UI.
+9. [ ] Submit the Monad A-Token launch request.
+10. [ ] Wait for the application to reach `ISSUED`.
+11. [ ] Record the issued A-Token address and transaction hash.
+12. [ ] Load and verify the on-chain A-Token rule.
+13. [ ] Grant `MINTER_ROLE` using the supplied contract instructions.
+14. [ ] Mint the demo supply.
+15. [ ] Verify Wallet A's A-Token balance.
 
 ## 7. Orchestration API
 
@@ -137,7 +163,7 @@ parallel-safe.
 13. [ ] Implement `POST /api/v1/transactions/evidence`.
 14. [x] Add structured, redacted logging.
 15. [ ] Configure rate limits.
-16. [ ] Configure restricted CORS.
+16. [x] Configure restricted single-origin CORS from `API_CORS_ORIGIN`.
 17. [x] Test policy denial separately from API failure.
 
 ## 8. Monad Contract Integration
@@ -184,7 +210,7 @@ parallel-safe.
 
 ## 11. Compliance Terminal
 
-1. [ ] Choose ordered-response or Server-Sent Events delivery.
+1. [x] Choose one ordered preflight response; defer Server-Sent Events.
 2. [ ] Define terminal event labels.
 3. [ ] Build pending event styling.
 4. [ ] Build approved event styling.
@@ -220,6 +246,9 @@ Complete this section only if the team approves demo mode.
 7. [ ] Test that production configuration disables demo mode.
 
 ## 14. Quality Verification
+
+The foundation currently passes type-check, lint, unit/contract tests, and
+build. Keep the final gates below unchecked until the complete MVP is tested.
 
 1. [ ] Run formatting checks.
 2. [ ] Run lint checks.

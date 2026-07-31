@@ -1,9 +1,9 @@
 # CleanGraph Product Requirements Document
 
-**Status:** Draft v0.2
+**Status:** Implementation-aligned v0.3
 **Track:** Track 1 — Real-World Assets (RWA)  
 **Technical source:** Cleanverse Cooperate API v5.6, July 21, 2026  
-**Last updated:** July 30, 2026
+**Last updated:** July 31, 2026
 
 ## 1. Product Summary
 
@@ -89,6 +89,26 @@ eligibility determination.
   Cleanverse sandbox.
 - Keep all Cleanverse credentials and encryption operations on the backend.
 
+### 4.1 Current delivery state
+
+The following foundation is implemented and covered by automated tests:
+
+- pnpm monorepo with Vite/React, Hono, shared contracts, and a Node-only
+  Cleanverse client;
+- secure Cleanverse configuration, AES/CBC request encryption, request
+  correlation, timeout handling, envelope parsing, and redacted typed errors;
+- A-Pass generation plus A-Pass, A-Token rule, and eligibility reads;
+- encrypted A-Token launch, application-status reads, and bounded polling;
+- `GET /health`, `GET /ready`, and
+  `POST /api/v1/compliance/preflight`;
+- sender and recipient verification with ordered, sanitized decision checks;
+  and
+- the responsive frontend shell, transfer fields, and initial terminal layout.
+
+The MVP is not complete until the team provisions the real sandbox demo state,
+connects Monad contracts and wallet signing, wires the frontend to the API,
+implements transaction evidence, and verifies both live demo journeys.
+
 ## 5. Non-Goals
 
 - Zero-knowledge proof implementation
@@ -163,8 +183,8 @@ Cleanverse application flow is asynchronous.
 - The product must submit or display an A-Token launch initiated through
   `POST /atoken/launch`.
 - It must display the request ID and application state.
-- It must distinguish `PENDING`, `APPROVED`, `ISSUED`, `REJECTED`, and
-  `ISSUE_FAILED`.
+- It must distinguish `PENDING`, `APPROVED`, `ISSUING`, `ISSUED`, `REJECTED`,
+  and `ISSUE_FAILED`.
 - It must treat only `ISSUED` as a usable asset.
 
 ### FR-3: Asset rule display
@@ -264,7 +284,7 @@ provides additional documentation.
 - Apply timeouts to Cleanverse requests.
 - Normalize HTTP errors separately from Cleanverse business-code failures.
 - Make preflight requests safe to retry.
-- Poll asynchronous issuance with bounded backoff.
+- Poll asynchronous issuance with a bounded interval and attempt count.
 - Do not repeat A-Token rule mutations until the prior on-chain write confirms.
 - Treat report indexing delays as a recoverable post-settlement state.
 
@@ -282,6 +302,27 @@ provides additional documentation.
   the sandbox supports them.
 - No secrets appear in the Git repository, browser bundle, logs, or video.
 
+### 12.1 Remaining acceptance path
+
+The remaining work is complete only when all of these checkpoints are proven:
+
+1. External prerequisites are recorded: Issue Member permission, exact A-Pass
+   group/subgroup codes, Monad RPC/chain/explorer values, the A-Token ABI, and
+   role/mint instructions.
+2. Wallet A and Wallet B have verified sandbox A-Passes with the intended
+   country difference.
+3. `TRWA` reaches `ISSUED`, its rule is verified, `MINTER_ROLE` is granted,
+   and the demo supply is minted.
+4. The frontend connects a Monad wallet, submits a real preflight request, and
+   renders the ordered decision checks.
+5. An eligible transfer is signed only after approval and confirms on Monad.
+6. The Wallet B scenario is denied before any signature request.
+7. The confirmed transaction is queried from Cleanverse and a report link is
+   shown when supported, without changing settlement success if indexing is
+   delayed.
+8. The deployed VPS API and Vercel frontend pass the same two journeys without
+   leaking secrets.
+
 ## 13. Hackathon Submission Constraints
 
 - Build period: August 8, 00:00 through August 9, 23:59 UTC.
@@ -296,6 +337,7 @@ provides additional documentation.
 
 1. Should deterministic demo mode be included?
 2. What exact information should be emphasized on the report screen?
-3. Who owns each implementation and submission responsibility?
+3. Who owns deployment, demo recording, and final submission?
 4. Which Cleanverse sandbox tier/group IDs correspond to the confirmed logical
    investor mapping?
+5. Which operator-authentication mechanism should protect asset issuance?

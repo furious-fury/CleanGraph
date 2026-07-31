@@ -1,8 +1,9 @@
 # CleanGraph Implementation Plan
 
-**Status:** Draft v0.2
+**Status:** Active v0.3
 **Depends on:** external Cleanverse and Monad prerequisites in `tasklist.md`
 **Technical source:** Cleanverse Cooperate API v5.6
+**Last updated:** July 31, 2026
 
 ## 1. Implementation Objective
 
@@ -33,6 +34,29 @@ are Vercel for the frontend and the team's VPS for the backend.
   rule to fail
 - CleanGraph amount cap: excluded from the MVP
 
+### 1.2 Implementation snapshot
+
+Completed and merged:
+
+- workspace, Vite/React shell, Hono API, shared Zod contracts, and root quality
+  commands;
+- Cleanverse secure transport, A-Pass provisioning, compliance reads, A-Token
+  launch, application-status normalization, and bounded polling;
+- health/readiness routes and the complete preflight orchestration endpoint;
+- ordered approval, denial, and infrastructure-error responses with request
+  correlation; and
+- unit and contract tests for the implemented backend packages.
+
+Not yet implemented:
+
+- transaction-query and report-download client methods;
+- protected asset-launch/application routes and the evidence route;
+- the contracts package, Monad configuration, A-Token ABI helpers, balance
+  reads, minting support, and transfer execution;
+- wallet connection and all live frontend/API integration;
+- sandbox A-Pass and A-Token provisioning;
+- final end-to-end tests, deployment, and submission artifacts.
+
 ## 2. Proposed Repository Architecture
 
 ```text
@@ -51,8 +75,9 @@ docs/
 scripts/                  Setup, sandbox checks, and deployment helpers
 ```
 
-Use a package-workspace tool so shared packages can be consumed without
-publishing. The final package manager remains an implementation decision.
+The repository uses pnpm workspaces. `packages/contracts`, `tests`, `scripts`,
+and `docs/decisions` currently contain placeholders and must not be described
+as implemented packages or test suites until their tasks are completed.
 
 ## 3. System Components
 
@@ -68,16 +93,21 @@ Responsibilities:
 - wait for Monad confirmation; and
 - request indexed transaction and report status.
 
-Candidate libraries:
+Selected libraries:
 
 - Vite
 - React
 - TypeScript
 - Tailwind CSS
-- Privy for wallet onboarding
+- shadcn/ui
+- Phosphor Icons
+
+Still to select and install:
+
+- Privy or a verified Monad-compatible alternative for wallet onboarding
 - viem for EVM contract reads, writes, and receipt polling
-- TanStack Query for server and chain request state
-- Zod using schemas shared with the backend
+- TanStack Query if the frontend needs server and chain request caching
+- `@cleangraph/shared` for runtime response validation
 
 Privy must be validated against Monad before it becomes final.
 
@@ -90,11 +120,12 @@ Responsibilities:
 - encrypt protected Cleanverse request bodies;
 - normalize Cleanverse envelopes and business codes;
 - orchestrate sender and recipient verification;
-- emit sanitized progress events; and
+- return sanitized ordered checks; and
 - query post-settlement evidence.
 
-The selected framework is Hono on the Node.js adapter with Zod validation. Its
-typed RPC client can share route contracts directly with the Vite frontend.
+The selected framework is Hono on the Node.js adapter. Public frontend/API
+contracts are the Zod schemas in `@cleangraph/shared`; Hono RPC is not the
+frontend contract for this project.
 
 ### 3.3 Cleanverse client package
 
@@ -110,14 +141,18 @@ The client must use:
 The client must never infer success from HTTP status alone. It must parse the
 top-level Cleanverse `code` and endpoint-specific result fields.
 
-Initial typed methods:
+Implemented typed methods:
 
 - `generateAPass`
 - `queryAPass`
 - `launchAToken`
 - `queryATokenApplication`
+- `pollATokenApplication`
 - `queryATokenRules`
 - `verifyAPassForToken`
+
+Remaining MVP typed methods:
+
 - `queryTransactions`
 - `downloadTravelRuleReport`
 
@@ -274,9 +309,9 @@ plus report availability.
 
 ### Progress transport
 
-Use Server-Sent Events if live step-by-step backend progress materially
-improves the terminal. For the MVP, returning the ordered check array after
-preflight is simpler and more reliable. The team must select one approach.
+The MVP uses one ordered preflight response. Each completed check contains a
+timestamp, status, safe code, and message. Server-Sent Events are deferred
+unless the existing response proves inadequate during demo testing.
 
 ## 6. Decision Model
 
@@ -341,6 +376,8 @@ an approved requirement needs persistence.
 - AES request encryption against a known vector
 - Cleanverse envelope parsing
 - `verify_apass` result-code mapping
+- A-Pass and A-Token input validation
+- A-Token application-state and polling behavior
 - decimal amount conversion
 - secret redaction
 
@@ -368,7 +405,7 @@ an approved requirement needs persistence.
 
 ## 10. Implementation Phases
 
-### Phase 0: Resolve external prerequisites
+### Phase 0: Resolve external prerequisites — blocked externally
 
 - Confirm the API ID has Issue Member permissions.
 - Obtain the A-Token ABI and role/mint instructions.
@@ -376,20 +413,27 @@ an approved requirement needs persistence.
 - Confirm the exact Cleanverse sandbox identifiers for the logical investor
   group and subgroup.
 
-### Phase 1: Workspace and shared contracts
+These checks can run in parallel with the remaining mocked implementation, but
+they block live provisioning and settlement.
 
-- Configure the TypeScript workspace.
-- Add shared schemas, decision codes, and environment validation.
-- Configure linting, formatting, tests, and secret checks.
+### Phase 1: Workspace and core shared contracts — substantially complete
 
-### Phase 2: Cleanverse client
+- Completed: pnpm workspace, Vite/React, Hono, shared preflight schemas,
+  decision codes, environment validation, linting, tests, and root build
+  commands.
+- Remaining: contracts package, formatting command, secret scanning, terminal
+  event types, application-state contracts for browser/API use, and
+  transaction-evidence contracts.
 
-- Implement authentication headers and request IDs.
-- Implement AES encryption for protected request bodies.
-- Add typed client methods and normalized errors.
-- Validate against sandbox read endpoints before write operations.
+### Phase 2: Cleanverse client — issuance and preflight complete
 
-### Phase 3: RWA and identity preparation
+- Completed: authentication, request IDs, encryption, safe errors, A-Pass
+  generation, compliance reads, A-Token launch/status/polling, mocked v5.6
+  coverage, and one read-only sandbox connectivity check.
+- Remaining: `queryTransactions` and `downloadTravelRuleReport`, including
+  sanitized fixtures and index-delay states.
+
+### Phase 3: RWA and identity preparation — not started live
 
 - Generate or confirm demo A-Passes.
 - Launch `TRWA` with 18 decimals, the country allowlist, and the confirmed
@@ -398,29 +442,30 @@ an approved requirement needs persistence.
 - Grant `MINTER_ROLE` and mint `1,000,000 TRWA`.
 - Record only non-secret addresses and transaction hashes.
 
-### Phase 4: Orchestration API
+### Phase 4: Orchestration API — preflight complete
 
-- Implement preflight and evidence routes.
-- Add sender/recipient verification.
-- Add A-Token rule retrieval.
-- Add safe structured logging.
+- Completed: health, readiness, preflight validation, sender/recipient
+  verification, rule retrieval, ordered decisions, restricted single-origin
+  CORS, and redacted failure logging.
+- Remaining: protected asset launch, application status, transaction evidence,
+  and rate limiting.
 
-### Phase 5: Frontend
+### Phase 5: Frontend — visual shell only
 
-- Build wallet and network state.
-- Build transfer form and validation.
-- Build compliance terminal.
-- Integrate preflight and A-Token transfer.
-- Build confirmation and report states.
+- Completed: responsive split shell, initial asset/recipient/amount fields, and
+  static compliance-terminal layout.
+- Remaining: wallet provider, network switching, shared schemas, form
+  validation, demo-wallet selectors, preflight request state, ordered terminal
+  rendering, signing, confirmation, explorer link, and report states.
 
-### Phase 6: Verification and demo hardening
+### Phase 6: Verification and demo hardening — not started end to end
 
 - Run unit, contract, frontend, and end-to-end tests.
 - Test the complete flow against the sandbox and Monad.
 - Prepare sanitized deterministic fixtures if approved.
 - Record successful and denied demo checkpoints.
 
-### Phase 7: Deployment and submission
+### Phase 7: Deployment and submission — deferred
 
 - Deploy the API to the VPS.
 - Configure the frontend on Vercel.
@@ -428,6 +473,42 @@ an approved requirement needs persistence.
 - Run live smoke tests.
 - Record the demo video.
 - Prepare the one-page summary and final submission.
+
+## 10.1 Remaining PR sequence
+
+Use a separate branch and PR for each independently reviewable unit:
+
+1. `feat/cleanverse-transaction-evidence`
+   - Add `queryTransactions` and `downloadTravelRuleReport`.
+   - Normalize indexed, delayed, unsupported, and malformed results.
+2. `feat/server-asset-lifecycle`
+   - Add protected launch and application-status routes.
+   - Add operator authentication, shared schemas, rate limits, and route tests.
+3. `feat/monad-contract-foundation`
+   - Initialize `packages/contracts`.
+   - Add verified Monad configuration, the supplied A-Token ABI, metadata,
+     decimal conversion, balance reads, and transfer preparation.
+4. `feat/server-transaction-evidence`
+   - Add transaction-hash validation, bounded index polling, and report
+     availability responses.
+5. `feat/web-preflight-terminal` (frontend owner)
+   - Add `@cleangraph/shared`, client validation, API integration, demo-wallet
+     selectors, and ordered terminal states.
+6. `feat/web-wallet-settlement` (frontend owner, paired with contract work)
+   - Add the selected wallet provider, Monad switching, simulation/signing,
+     receipt confirmation, and explorer links.
+7. `feat/web-transaction-evidence` (frontend owner)
+   - Render index/report pending, ready, unsupported, and failed states.
+8. `test/demo-e2e-hardening`
+   - Add eligible and denied end-to-end journeys, secret scanning, final
+     sandbox checks, and optional clearly labelled deterministic fixtures.
+9. `chore/deploy-and-submit`
+   - Configure the VPS and Vercel, run production smoke tests, and finish the
+     video, one-page summary, links, and submission.
+
+Live sandbox preparation is an operational checkpoint between PRs 3 and 6:
+create both A-Passes, issue `TRWA`, grant `MINTER_ROLE`, mint the supply, and
+record only safe identifiers.
 
 ## 11. Key Risks
 
@@ -448,6 +529,8 @@ an approved requirement needs persistence.
 ## 12. Remaining Technical Decisions
 
 1. Privy versus another wallet library
-2. Polling response versus Server-Sent Events for terminal progress
+2. Operator authentication for the asset-lifecycle API
 3. Whether deterministic demo fixtures are permitted
 4. Which Cleanverse contract artifacts and Monad environment are available
+5. Whether the sandbox supports transaction reports for the final Monad
+   transfer flow
