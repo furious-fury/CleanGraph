@@ -260,6 +260,7 @@ describe("A-Pass provisioning response contract", () => {
   });
 
   it.each([
+    { cvRecordId: undefined },
     { customerId: "DifferentCustomer001" },
     {
       wallet: {
@@ -277,6 +278,12 @@ describe("A-Pass provisioning response contract", () => {
       wallet: {
         ...validResponseData().wallet,
         txHash: "0x1234",
+      },
+    },
+    {
+      wallet: {
+        ...validResponseData().wallet,
+        depositUSDCWallet: "not-an-address",
       },
     },
   ])("rejects malformed or mismatched response data", (override) => {

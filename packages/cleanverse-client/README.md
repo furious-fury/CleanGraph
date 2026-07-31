@@ -98,7 +98,59 @@ adds a named outcome:
 The Cleanverse result is authoritative. The client does not infer a more
 specific denial reason from A-Pass attributes or A-Token rules.
 
+## A-Pass provisioning
+
+`generateAPass` sends the documented protected request through the encrypted
+transport. Use fictional identity data for the demo:
+
+```ts
+const result = await client.generateAPass(
+  {
+    customerId: "DemoInvestor001",
+    expirationTime: 4_102_444_800,
+    wallet: {
+      chain: "monad",
+      address: "0x1111111111111111111111111111111111111111",
+    },
+    identityDataList: [
+      {
+        idType: "PASSPORT",
+        fullName: "Demo Investor",
+        idNumber:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        validUntil: "2099-12-31",
+        issuingCountryISO2: "GB",
+      },
+    ],
+  },
+  { requestId: incomingRequestId },
+);
+```
+
+Provisioning boundaries:
+
+- At least one identity document is required so Cleanverse can derive an
+  A-Pass country tag.
+- `idNumber` accepts only a 64-character SHA-256 hash. Raw identity-document
+  numbers are rejected.
+- Country codes must be uppercase members of the Cleanverse v5.6 ISO
+  appendix.
+- Bank-account data is not accepted by the CleanGraph MVP client.
+- `generate_apass` does not accept tier or group. Cleanverse assigns the
+  returned tier, and the applicable sandbox group mapping must be confirmed
+  separately.
+- The default request has `override: false`. Business code `1000` is not
+  retried automatically; a caller must review the overwrite warning and make
+  a new explicit call with `override: true`.
+- Request IDs are generated or propagated exactly like the compliance reads.
+- Input identity data is encrypted in transit, never included in client
+  errors, and never logged by this package.
+
+The method only exposes normalized record, tier, wallet, transaction-hash, and
+optional deposit-wallet data from successful responses. Live A-Pass creation
+is a separate manual sandbox operation and is not performed by tests.
+
 ## Current boundary
 
-Transaction lookup, report download, write endpoints, and Hono orchestration
-are intentionally deferred.
+Transaction lookup, report download, A-Token write methods, and public A-Pass
+provisioning routes are intentionally deferred.
