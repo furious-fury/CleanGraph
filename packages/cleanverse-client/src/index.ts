@@ -3,6 +3,12 @@ export {
   type CleanverseResponse,
 } from "./client.js";
 export type {
+  APassIdentityDocument,
+  GenerateAPassInput,
+  GenerateAPassResult,
+  GenerateAPassWallet,
+} from "./apass.js";
+export type {
   APassStatus,
   APassVerificationCode,
   APassVerificationOutcome,
