@@ -91,12 +91,12 @@ parallel-safe.
 
 ## 5. A-Pass Setup Flow
 
-1. [ ] Implement the encrypted `generateAPass` client method.
-2. [ ] Validate 12-character alphanumeric customer IDs.
-3. [ ] Validate Monad wallet addresses.
-4. [ ] Validate expiration timestamps.
-5. [ ] Validate ISO country codes.
-6. [ ] Avoid storing raw identity and bank data in application logs.
+1. [x] Implement the encrypted `generateAPass` client method.
+2. [x] Validate 12-character alphanumeric customer IDs.
+3. [x] Validate Monad wallet addresses.
+4. [x] Validate expiration timestamps.
+5. [x] Validate ISO country codes.
+6. [x] Avoid storing raw identity and bank data in application logs.
 7. [ ] Create Wallet A's sandbox A-Pass.
 8. [ ] Confirm Wallet A is active with `queryAPass`.
 9. [ ] Create Wallet B's sandbox A-Pass.

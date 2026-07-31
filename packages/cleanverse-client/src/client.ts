@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import {
+  createGenerateAPassResultSchema,
+  parseGenerateAPassInput,
+  type GenerateAPassInput,
+  type GenerateAPassResult,
+} from "./apass.js";
+import {
   createQueryAPassResultSchema,
   createQueryATokenRulesResultSchema,
   createVerifyAPassForTokenResultSchema,
@@ -71,6 +77,22 @@ export class CleanverseClient {
 
   constructor(config: CleanverseClientConfig) {
     this.#config = resolveCleanverseClientConfig(config);
+  }
+
+  async generateAPass(
+    input: GenerateAPassInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<GenerateAPassResult>> {
+    const parsedInput = parseGenerateAPassInput(input);
+
+    return this.requestEncrypted({
+      path: "generate_apass",
+      body: parsedInput,
+      dataSchema: createGenerateAPassResultSchema(parsedInput),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
   }
 
   async queryAPass(
