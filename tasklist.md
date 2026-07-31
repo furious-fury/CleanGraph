@@ -87,7 +87,7 @@ parallel-safe.
 9. [ ] Implement `downloadTravelRuleReport`.
 10. [ ] Add sanitized fixtures for every result state.
 11. [ ] Test all methods with mocked v5.6 responses.
-12. [ ] Run a sandbox read-endpoint smoke test.
+12. [x] Run a sandbox read-endpoint smoke test.
 
 ## 5. A-Pass Setup Flow
 
@@ -105,13 +105,13 @@ parallel-safe.
 
 ## 6. A-Token Issuance Flow
 
-1. [ ] Implement the encrypted `launchAToken` client method.
-2. [ ] Validate token metadata and admin address.
-3. [ ] Build the initial tier/group/country rule.
-4. [ ] Implement `queryATokenApplication`.
-5. [ ] Add bounded polling for application status.
-6. [ ] Treat only `ISSUED` as success.
-7. [ ] Display rejection and issuance-failure reasons safely.
+1. [x] Implement the encrypted `launchAToken` client method.
+2. [x] Validate token metadata and admin address.
+3. [x] Build the initial tier/group/country rule.
+4. [x] Implement `queryATokenApplication`.
+5. [x] Add bounded polling for application status.
+6. [x] Treat only `ISSUED` as success.
+7. [x] Display rejection and issuance-failure reasons safely.
 8. [ ] Submit the Monad A-Token launch request.
 9. [ ] Wait for the application to reach `ISSUED`.
 10. [ ] Record the issued A-Token address and transaction hash.

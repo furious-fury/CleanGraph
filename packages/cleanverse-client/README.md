@@ -49,6 +49,7 @@ Failures use typed exceptions:
 - `CleanverseHttpError`
 - `CleanverseMalformedResponseError`
 - `CleanverseBusinessError`
+- `CleanversePollingExhaustedError`
 
 HTTP status alone is not business success. A successful Cleanverse envelope
 must contain top-level code `"0000"`. Endpoint data is validated separately
@@ -150,7 +151,92 @@ The method only exposes normalized record, tier, wallet, transaction-hash, and
 optional deposit-wallet data from successful responses. Live A-Pass creation
 is a separate manual sandbox operation and is not performed by tests.
 
+## A-Token issuance
+
+`launchAToken` submits the v5.6 standard A-Token launch contract through the
+encrypted transport:
+
+```ts
+const launch = await client.launchAToken(
+  {
+    chain: "monad",
+    tokenName: "Tokenized Real-World Asset",
+    tokenSymbol: "TRWA",
+    decimals: 18,
+    adminAddress: "0x1111111111111111111111111111111111111111",
+    rule: {
+      allowedGroup: "II",
+      allowedSubGroup: "AI",
+      minTier: 0,
+      minSubTier: 0,
+      isBlackList: false,
+      countries: ["US", "GB", "DE", "SG"],
+    },
+    icon: "https://assets.example.com/trwa.svg",
+  },
+  { requestId: incomingRequestId },
+);
+```
+
+The group codes above are illustrative until the Cleanverse sandbox mapping
+is confirmed. Both group fields must be empty or exactly two case-sensitive
+characters. Country codes must be unique uppercase values from the v5.6 ISO
+appendix. Cleanverse defines `minTier` and `minSubTier` as strict lower bounds:
+the A-Pass values must be greater than the configured values.
+
+The token name and symbol must be non-blank and have no surrounding
+whitespace. Decimals must be an integer from 0 through 255. The admin address
+must be a Monad EVM address, and the icon must use HTTP or HTTPS. An optional
+HTTP(S) `callbackUrl` may contain at most 512 characters.
+
+Launch metadata, the admin address, and the rule are present only inside the
+AES-encrypted plaintext. The serialized request envelope contains only
+`data`. A successful submission returns a normalized
+`applicationRequestId` and `issueAssetId`; it does not mean the token has been
+issued.
+
+Use a single status read when the caller controls scheduling:
+
+```ts
+const status = await client.queryATokenApplication(
+  { applicationRequestId: launch.data.applicationRequestId },
+  { requestId: incomingRequestId },
+);
+```
+
+Or use bounded polling:
+
+```ts
+const terminal = await client.pollATokenApplication(
+  { applicationRequestId: launch.data.applicationRequestId },
+  {
+    requestId: incomingRequestId,
+    maxAttempts: 30,
+    intervalMs: 2_000,
+  },
+);
+```
+
+Application statuses are `PENDING`, `APPROVED`, `ISSUING`, `ISSUED`,
+`REJECTED`, and `ISSUE_FAILED`. Only `ISSUED` sets `successful: true`.
+`REJECTED` and `ISSUE_FAILED` are terminal failures. Their raw upstream
+messages are discarded; the normalized result supplies a stable failure code,
+a safe display message, and a flag indicating whether Cleanverse supplied a
+reason.
+
+Polling repeats only successfully parsed non-terminal status reads. It stops
+immediately on a terminal result or any transport, HTTP, business, or malformed
+response error. Reaching `maxAttempts` throws the retryable
+`CleanversePollingExhaustedError`; it never converts a pending application into
+success.
+
+Live launch is intentionally separate from tests. Before submitting, confirm
+that the API ID has Issue Member permission, obtain the real two-character
+group/subgroup codes, choose the tier thresholds, host the icon publicly, and
+control the Monad admin wallet that will later grant `MINTER_ROLE`.
+
 ## Current boundary
 
-Transaction lookup, report download, A-Token write methods, and public A-Pass
-provisioning routes are intentionally deferred.
+Transaction lookup, report download, Hono asset-launch routes, live sandbox
+issuance, role grants, minting, and public A-Pass provisioning routes are
+intentionally deferred.
