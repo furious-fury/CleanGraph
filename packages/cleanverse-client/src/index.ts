@@ -9,6 +9,19 @@ export type {
   GenerateAPassWallet,
 } from "./apass.js";
 export type {
+  ATokenApplicationFailureCode,
+  ATokenApplicationFlow,
+  ATokenApplicationStatus,
+  ATokenCallbackStatus,
+  ATokenRuleInput,
+  LaunchATokenInput,
+  LaunchATokenResult,
+  PollATokenApplicationOptions,
+  PollATokenApplicationResult,
+  QueryATokenApplicationInput,
+  QueryATokenApplicationResult,
+} from "./atoken.js";
+export type {
   APassStatus,
   APassVerificationCode,
   APassVerificationOutcome,
@@ -33,6 +46,7 @@ export {
   CleanverseHttpError,
   CleanverseMalformedResponseError,
   CleanverseNetworkError,
+  CleanversePollingExhaustedError,
   CleanverseTimeoutError,
   type CleanverseErrorJson,
 } from "./errors.js";

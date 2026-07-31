@@ -7,6 +7,19 @@ import {
   type GenerateAPassResult,
 } from "./apass.js";
 import {
+  createLaunchATokenResultSchema,
+  createQueryATokenApplicationResultSchema,
+  parseLaunchATokenInput,
+  parsePollATokenApplicationOptions,
+  parseQueryATokenApplicationInput,
+  type LaunchATokenInput,
+  type LaunchATokenResult,
+  type PollATokenApplicationOptions,
+  type PollATokenApplicationResult,
+  type QueryATokenApplicationInput,
+  type QueryATokenApplicationResult,
+} from "./atoken.js";
+import {
   createQueryAPassResultSchema,
   createQueryATokenRulesResultSchema,
   createVerifyAPassForTokenResultSchema,
@@ -33,6 +46,7 @@ import {
   CleanverseHttpError,
   CleanverseMalformedResponseError,
   CleanverseNetworkError,
+  CleanversePollingExhaustedError,
   CleanverseTimeoutError,
 } from "./errors.js";
 
@@ -93,6 +107,108 @@ export class CleanverseClient {
         ? {}
         : { requestId: options.requestId }),
     });
+  }
+
+  async launchAToken(
+    input: LaunchATokenInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<LaunchATokenResult>> {
+    const parsedInput = parseLaunchATokenInput(input);
+
+    return this.requestEncrypted({
+      path: "atoken/launch",
+      body: {
+        chain: parsedInput.chain,
+        token_name: parsedInput.tokenName,
+        token_symbol: parsedInput.tokenSymbol,
+        decimals: parsedInput.decimals,
+        admin_address: parsedInput.adminAddress,
+        rule: {
+          allowed_group: parsedInput.rule.allowedGroup,
+          allowed_sub_group: parsedInput.rule.allowedSubGroup,
+          min_tier: parsedInput.rule.minTier,
+          min_sub_tier: parsedInput.rule.minSubTier,
+          is_black_list: parsedInput.rule.isBlackList,
+          countries: parsedInput.rule.countries,
+        },
+        icon: parsedInput.icon,
+        ...(parsedInput.callbackUrl === undefined
+          ? {}
+          : { callback_url: parsedInput.callbackUrl }),
+      },
+      dataSchema: createLaunchATokenResultSchema(),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
+  }
+
+  async queryATokenApplication(
+    input: QueryATokenApplicationInput,
+    options: CleanverseRequestOptions = {},
+  ): Promise<CleanverseResponse<QueryATokenApplicationResult>> {
+    const parsedInput = parseQueryATokenApplicationInput(input);
+
+    return this.requestPlain({
+      path: `atoken/query_apply_status/${parsedInput.applicationRequestId}`,
+      method: "GET",
+      dataSchema:
+        createQueryATokenApplicationResultSchema(parsedInput),
+      ...(options.requestId === undefined
+        ? {}
+        : { requestId: options.requestId }),
+    });
+  }
+
+  async pollATokenApplication(
+    input: QueryATokenApplicationInput,
+    options: PollATokenApplicationOptions = {},
+  ): Promise<PollATokenApplicationResult> {
+    const parsedInput = parseQueryATokenApplicationInput(input);
+    const parsedOptions =
+      parsePollATokenApplicationOptions(options);
+    let latestResponse:
+      | CleanverseResponse<QueryATokenApplicationResult>
+      | undefined;
+
+    for (
+      let attempt = 1;
+      attempt <= parsedOptions.maxAttempts;
+      attempt += 1
+    ) {
+      latestResponse = await this.queryATokenApplication(
+        parsedInput,
+        parsedOptions.requestId === undefined
+          ? {}
+          : { requestId: parsedOptions.requestId },
+      );
+
+      if (latestResponse.data.terminal) {
+        return {
+          attempts: attempt,
+          responseRequestId: latestResponse.requestId,
+          application: latestResponse.data,
+        };
+      }
+
+      if (
+        attempt < parsedOptions.maxAttempts &&
+        parsedOptions.intervalMs > 0
+      ) {
+        await delay(parsedOptions.intervalMs);
+      }
+    }
+
+    if (latestResponse === undefined) {
+      throw new CleanverseConfigurationError(
+        "The Cleanverse polling configuration is invalid.",
+      );
+    }
+
+    throw new CleanversePollingExhaustedError(
+      latestResponse.requestId,
+      latestResponse.data.status,
+    );
   }
 
   async queryAPass(
@@ -375,4 +491,10 @@ export class CleanverseClient {
       );
     }
   }
+}
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 }
