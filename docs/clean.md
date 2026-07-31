@@ -32,6 +32,25 @@ The Cleanverse v5.6 A-Token rule model supports A-Pass tier, sub-tier, group, su
 
 These labels and country choices are demo configuration, not legal advice, a sanctions list, or a production accreditation determination.
 
+### Current Repository Status
+
+The backend foundation is implemented: secure Cleanverse transport, encrypted
+A-Pass and A-Token writes, compliance reads, A-Token application polling, and
+the Hono preflight route. The frontend has the responsive transfer and
+compliance-terminal shell but is not connected to a wallet, the API, or Monad.
+
+The remaining MVP is the live system around that foundation:
+
+1. confirm external Cleanverse and Monad contract prerequisites;
+2. add transaction index and report client/API support;
+3. expose protected asset lifecycle routes;
+4. implement the Monad contracts package;
+5. provision both A-Passes and the issued/minted `TRWA` token;
+6. connect preflight, terminal rendering, wallet signing, and settlement in the
+   frontend;
+7. test both live demo paths; and
+8. deploy and prepare the submission.
+
 ### The Problem: "Dirty" Liquidity and Rigid Compliance
 
 Institutional capital wants to enter Web3, but it is entirely bottlenecked by current infrastructure. Traditional DeFi mixes verified and unverified funds ("radioactive liquidity"), making it impossible for institutions to participate without massive compliance risks.
@@ -57,7 +76,7 @@ It chains Cleanverse endpoints together into a single authorization pipeline, ou
 
 CleanGraph uses the documented Cleanverse v5.6 lifecycle:
 
-1. **Identity Issuance (`POST /generate_apass`):** Creates an A-Pass record for a wallet. The encrypted request can include KYC references, identity-document country tags, tier metadata, and an expiration time.
+1. **Identity Issuance (`POST /generate_apass`):** Creates an A-Pass record for a wallet. The encrypted request can include KYC references, identity-document country tags, optional sub-tier/subgroup metadata, and an expiration time. Cleanverse assigns the returned tier; this endpoint does not accept a tier or group.
 2. **RWA Issuance (`POST /atoken/launch`):** Submits a new A-Token application with its initial tier, group, and country compliance rule. CleanGraph polls `GET /atoken/query_apply_status/{requestId}` until the asset reaches `ISSUED`.
 3. **Pre-Transfer Verification (`POST /verify_apass`):** Checks each counterparty against the specified A-Token. `data.code: 4` is the documented approval result.
 4. **On-Chain Settlement:** The connected wallet signs and broadcasts the A-Token transfer on Monad. A-Token rules provide on-chain transfer enforcement.
@@ -194,9 +213,23 @@ Client               CleanGraph Middleware            Cleanverse APIs           
 ---
 ## Integration Plan
 
-Since the Cleanverse Build hackathon hacking period runs from August 8-9, here is the exact execution roadmap to build CleanGraph from registration to demo.
+The workspace, Cleanverse client, preflight orchestration, and frontend shell
+are complete. The remaining work should be delivered as small PRs in this
+order:
 
-## Pre-Hackathon: Environment & Onboarding (Before Aug 8)
+1. Cleanverse transaction evidence client
+2. Protected asset lifecycle API
+3. Monad contract foundation
+4. Transaction evidence API
+5. Frontend preflight and ordered terminal
+6. Frontend wallet settlement
+7. Evidence UI and end-to-end hardening
+8. Deployment and submission
+
+Live A-Pass and A-Token provisioning occurs after the external identifiers,
+ABI, network values, and admin wallet are confirmed.
+
+## External Access and Demo Preparation
 
 
 1. **Register & Claim API Keys:** Registration triggers an automated email with your Sandbox API keys. Keep these in your local `.env` file; never commit them to the repo.
@@ -210,35 +243,41 @@ Since the Cleanverse Build hackathon hacking period runs from August 8-9, here i
 
 ---
 
-## 48-Hour Execution Roadmap
+## Remaining Execution Roadmap
 
-### Day 1: API Orchestration & Middleware (Backend)
+### Backend
 
-The core of CleanGraph is a lightweight Node.js and TypeScript backend that sits between the Vite frontend and the Cleanverse Cooperate API v5.6.
+The core Hono preflight endpoint already accepts a transaction intent, verifies
+both counterparties, loads the A-Token rules, and returns an ordered decision.
+The remaining backend work is:
 
-1. **Initialize the Orchestration Endpoint:** POST /api/cleangraph/execute.
-Create a single endpoint that accepts the transaction intent from the frontend. The payload should include the sender's wallet address, the receiver's wallet address, the A-Token address, and the transfer amount.
+1. **Add transaction evidence methods:** Implement `queryTransactions` and
+   `downloadTravelRuleReport` with index-delay handling.
 
+2. **Expose asset lifecycle routes:** Add protected launch and application
+   status endpoints backed by the implemented Cleanverse client.
 
-2. **Verify Both Counterparties:** `POST /verify_apass`.
-Call the endpoint separately for the sender and receiver with `chain: "monad"` and the issued A-Token address. Continue only when both responses return top-level `code: "0000"` and `data.code: 4`. A non-eligible user is a policy denial, not an HTTP authentication error.
+3. **Add the transaction evidence route:** Accept a confirmed hash and return
+   normalized indexed/report states.
 
+4. **Build Monad helpers:** Add the supplied ABI, network configuration,
+   decimal conversion, balance reads, transfer preparation, receipt waiting,
+   and explorer links.
 
-3. **Load the A-Token Rules:** `POST /atoken/rules`.
-Retrieve and display the tier, group, and country rules bound to the asset. Cleanverse performs the authoritative eligibility check through `POST /verify_apass`.
+5. **Harden the API:** Protect operator-only routes, add rate limiting, and
+   preserve the existing redaction and request-correlation guarantees.
 
+The implemented preflight route is
+`POST /api/v1/compliance/preflight`; there is no
+`POST /api/cleangraph/execute` route.
 
-4. **Return the Preflight Decision:**
-Return a normalized decision, reason code, request ID, and per-check evidence. Do not treat HTTP 200 alone as approval; Cleanverse uses business codes inside successful HTTP responses.
-
-
-### Day 2: Frontend Dashboard & Visualization (UI)
+### Frontend
 
 Hackathons are visual competitions. The judges cannot see backend API calls unless they are exposed clearly. Use Vite, React, TypeScript, and Tailwind CSS.
 
 * **The UI Concept - "The Terminal":** Build a split-screen interface. The left side is a standard DeFi swap/transfer interface. The right side is a dark-mode "Compliance Terminal."
 * **Live Event Logging:** When the user clicks "Transfer A-Token", run CleanGraph preflight before requesting the connected wallet signature.
-* **Visualizing the API:** As your backend pings the Cleanverse API, stream the logs to the right-side terminal in real-time:
+* **Visualizing the API:** Render the ordered checks returned by preflight in the right-side terminal:
 ```json
 [10:02:41] Intercepting TX: 50,000 $TRWA
 [10:02:42] Cleanverse API -> /verify_apass (Sender: 0x...) -> ELIGIBLE (code 4)
@@ -251,7 +290,7 @@ Hackathons are visual competitions. The judges cannot see backend API calls unle
 ```
 
 
-* **The Failure State:** Switch the recipient to Wallet B. Its active A-Pass has the required investor mapping but country `BR`, which is outside the `US`/`GB`/`DE`/`SG` allowlist. Show the same flow, but stop before wallet signing and display the documented `verify_apass` result plus a normalized CleanGraph country-policy reason.
+* **The Failure State:** Switch the recipient to Wallet B. Its active A-Pass has the required investor mapping but country `BR`, which is outside the `US`/`GB`/`DE`/`SG` allowlist. Show the same flow, but stop before wallet signing and display the documented `verify_apass` result. Explain the configured country difference as demo setup; do not claim that result code `3` exposes a country-specific upstream reason.
 
 ---
 

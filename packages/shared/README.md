@@ -55,8 +55,8 @@ policy evaluations:
       "id": "recipient-eligibility",
       "source": "cleanverse",
       "status": "denied",
-      "code": "3",
-      "message": "Recipient is not eligible to receive this A-Token",
+      "code": "APASS_NOT_ELIGIBLE",
+      "message": "Recipient is not eligible to receive this A-Token.",
       "checkedAt": "2026-07-30T12:00:00.000Z"
     }
   ]
@@ -71,7 +71,6 @@ The preflight endpoint uses these HTTP statuses:
 
 - `200`: completed approval or denial
 - `422`: invalid request
-- `501`: compliance integration not implemented
 - `503`: backend not configured
 - `502`: Cleanverse unavailable or returned an invalid response
 - `504`: Cleanverse request timed out
