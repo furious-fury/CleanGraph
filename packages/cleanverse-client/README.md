@@ -235,8 +235,65 @@ that the API ID has Issue Member permission, obtain the real two-character
 group/subgroup codes, choose the tier thresholds, host the icon publicly, and
 control the Monad admin wallet that will later grant `MINTER_ROLE`.
 
+## Transaction evidence
+
+`queryTransactions` reads the Cleanverse transaction index with plain JSON:
+
+```ts
+const indexed = await client.queryTransactions(
+  {
+    chain: "monad",
+    address: "0x1111111111111111111111111111111111111111",
+    symbol: "TRWA",
+    transactionHash:
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    type: "transfer",
+  },
+  { requestId: incomingRequestId },
+);
+```
+
+Pagination defaults to page `1` with `10` items and is capped at `100` items
+per page. Timestamps use Unix seconds. Returned `amount` and `feeAmount` values
+remain base-unit strings; decimal formatting belongs to the contracts and UI
+layers.
+
+An empty successful result is valid and may mean that Cleanverse has not
+indexed the confirmed Monad transaction yet. This method does not poll and
+does not convert an empty page into a settlement failure. The future Hono
+evidence service owns bounded index polling.
+
+Use `downloadTravelRuleReport` for either a supported A-Token transfer report
+or a Travel Rule withdrawal report. Cleanverse determines the report from the
+transaction hash; the request does not invent a report-type field:
+
+```ts
+const report = await client.downloadTravelRuleReport(
+  {
+    transactionHash:
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    wallet: {
+      chain: "monad",
+      address: "0x1111111111111111111111111111111111111111",
+    },
+  },
+  { requestId: incomingRequestId },
+);
+```
+
+The returned HTTPS URL is time-limited and may contain a bearer-like token.
+Callers may present it to the authorized user, but must not put it in logs or
+errors. The client validates the URL and filename and discards unknown
+upstream fields.
+
+Non-`"0000"` report responses remain `CleanverseBusinessError` instances.
+The v5.6 guide does not document enough business codes to safely distinguish
+index delay, an unsupported report, or another upstream failure. Application
+orchestration must keep report availability separate from confirmed settlement
+status.
+
 ## Current boundary
 
-Transaction lookup, report download, Hono asset-launch routes, live sandbox
-issuance, role grants, minting, and public A-Pass provisioning routes are
-intentionally deferred.
+Hono asset-launch and evidence routes, index polling, live sandbox issuance,
+role grants, minting, and public A-Pass provisioning routes are intentionally
+deferred.

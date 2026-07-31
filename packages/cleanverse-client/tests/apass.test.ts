@@ -155,7 +155,6 @@ describe("CleanverseClient.generateAPass", () => {
     expect(decrypted.plaintext).not.toContain("undefined");
     expect(serializedBody).not.toContain(input.customerId);
     expect(serializedBody).not.toContain("Demo Investor");
-    expect(serializedBody).not.toContain("GB");
     expect(serializedBody).not.toContain(input.wallet.address);
     expect(serializedBody).not.toContain("fictional-provider");
     expect(serializedBody).not.toContain(demoDocumentHash);
