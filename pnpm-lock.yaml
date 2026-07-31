@@ -10,6 +10,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@cleangraph/cleanverse-client':
+        specifier: workspace:*
+        version: link:../../packages/cleanverse-client
       '@cleangraph/shared':
         specifier: workspace:*
         version: link:../../packages/shared
