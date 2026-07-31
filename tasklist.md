@@ -124,21 +124,21 @@ parallel-safe.
 
 1. [x] Implement `GET /health`.
 2. [x] Implement request validation for transaction intents.
-3. [ ] Implement `POST /api/v1/compliance/preflight`.
-4. [ ] Verify the sender against the selected A-Token.
-5. [ ] Verify the recipient against the selected A-Token.
-6. [ ] Load A-Token rules for display evidence.
+3. [x] Implement `POST /api/v1/compliance/preflight`.
+4. [x] Verify the sender against the selected A-Token.
+5. [x] Verify the recipient against the selected A-Token.
+6. [x] Load A-Token rules for display evidence.
 7. [x] Confirm that preflight has no application-level amount-limit check.
-8. [ ] Build the ordered check result.
-9. [ ] Return approval only when every required check passes.
+8. [x] Build the ordered check result.
+9. [x] Return approval only when every required check passes.
 10. [ ] Implement `POST /api/v1/assets/launch`.
 11. [ ] Restrict the asset-launch route to the demo operator.
 12. [ ] Implement `GET /api/v1/assets/applications/:requestId`.
 13. [ ] Implement `POST /api/v1/transactions/evidence`.
-14. [ ] Add structured, redacted logging.
+14. [x] Add structured, redacted logging.
 15. [ ] Configure rate limits.
 16. [ ] Configure restricted CORS.
-17. [ ] Test policy denial separately from API failure.
+17. [x] Test policy denial separately from API failure.
 
 ## 8. Monad Contract Integration
 

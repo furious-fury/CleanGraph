@@ -13,12 +13,13 @@
     "build": "tsc -p tsconfig.json",
     "dev": "TMPDIR=/tmp tsx watch src/index.ts",
     "lint": "oxlint src tests",
-    "pretest": "pnpm --filter @cleangraph/shared build",
+    "pretest": "pnpm --filter @cleangraph/shared build && pnpm --filter @cleangraph/cleanverse-client build",
     "start": "node dist/index.js",
     "test": "NODE_ENV=test TMPDIR=/tmp vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@cleangraph/cleanverse-client": "workspace:*",
     "@cleangraph/shared": "workspace:*",
     "@hono/node-server": "^2.0.12",
     "hono": "^4.12.32",
