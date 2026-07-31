@@ -5,6 +5,18 @@ const optionalSecret = z.preprocess(
   z.string().min(1).optional(),
 );
 
+const optionalCleanverseValue = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().optional(),
+);
+
+const cleanverseTimeout = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.union([z.string(), z.number()]).default(10_000),
+);
+
 const environmentSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -14,10 +26,9 @@ const environmentSchema = z.object({
     .string()
     .url()
     .default("http://localhost:5173"),
-  CLEANVERSE_API_BASE_URL: z
-    .string()
-    .url()
-    .default("https://uatapi.cleanverse.com/api/cooperate"),
+  CLEANVERSE_BASE_URL: optionalCleanverseValue,
+  CLEANVERSE_API_BASE_URL: optionalCleanverseValue,
+  CLEANVERSE_TIMEOUT_MS: cleanverseTimeout,
   CLEANVERSE_API_ID: optionalSecret,
   CLEANVERSE_API_KEY: optionalSecret,
 });
@@ -37,6 +48,21 @@ export function isCleanverseConfigured(
   return Boolean(
     environment.CLEANVERSE_API_ID && environment.CLEANVERSE_API_KEY,
   );
+}
+
+export function getCleanverseBaseUrl(
+  environment = getEnvironment(),
+): string | undefined {
+  return (
+    environment.CLEANVERSE_BASE_URL ??
+    environment.CLEANVERSE_API_BASE_URL
+  );
+}
+
+export function getCleanverseTimeoutMs(
+  environment = getEnvironment(),
+): number {
+  return Number(environment.CLEANVERSE_TIMEOUT_MS);
 }
 
 export function resetEnvironmentForTests(): void {
