@@ -5,6 +5,14 @@ const optionalSecret = z.preprocess(
   z.string().min(1).optional(),
 );
 
+const optionalOperatorToken = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === ""
+      ? undefined
+      : value,
+  z.string().min(32).optional(),
+);
+
 const optionalCleanverseValue = z.preprocess(
   (value) =>
     typeof value === "string" && value.trim() === "" ? undefined : value,
@@ -31,6 +39,7 @@ const environmentSchema = z.object({
   CLEANVERSE_TIMEOUT_MS: cleanverseTimeout,
   CLEANVERSE_API_ID: optionalSecret,
   CLEANVERSE_API_KEY: optionalSecret,
+  ASSET_OPERATOR_TOKEN: optionalOperatorToken,
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

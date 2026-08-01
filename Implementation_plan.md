@@ -295,11 +295,18 @@ The response must distinguish:
 ### `POST /api/v1/assets/launch`
 
 Submits the encrypted A-Token launch request. This route must be restricted to
-the demo operator and must never expose the API key.
+the demo operator and must never expose the API key. The implemented route uses
+a backend-only bearer token, returns `202` with the standard `IA...`
+application identifier, and applies a process-global limit of 5 authenticated
+requests per 60 seconds.
 
 ### `GET /api/v1/assets/applications/:requestId`
 
-Returns the normalized issuance application state.
+Returns one normalized issuance application snapshot for standard `LAUNCH`
+applications. The caller controls subsequent reads. Rejected and failed
+applications return HTTP `200` with normalized failure evidence. The route uses
+the same backend-only bearer token and allows 120 authenticated reads per 60
+seconds.
 
 ### `POST /api/v1/transactions/evidence`
 
@@ -440,13 +447,15 @@ they block live provisioning and settlement.
 - Grant `MINTER_ROLE` and mint `1,000,000 TRWA`.
 - Record only non-secret addresses and transaction hashes.
 
-### Phase 4: Orchestration API — preflight complete
+### Phase 4: Orchestration API — preflight and asset lifecycle complete
 
 - Completed: health, readiness, preflight validation, sender/recipient
   verification, rule retrieval, ordered decisions, restricted single-origin
   CORS, and redacted failure logging.
-- Remaining: protected asset launch, application status, transaction evidence,
-  and rate limiting.
+- Completed: protected standard A-Token launch, application-status snapshots,
+  operator bearer authentication, shared lifecycle schemas, and fixed-window
+  rate limits.
+- Remaining: the transaction-evidence route.
 
 ### Phase 5: Frontend — visual shell only
 
@@ -479,7 +488,7 @@ Use a separate branch and PR for each independently reviewable unit:
 1. `feat/cleanverse-transaction-evidence` (this PR)
    - Add `queryTransactions` and `downloadTravelRuleReport`.
    - Normalize indexed, delayed, unsupported, and malformed results.
-2. `feat/server-asset-lifecycle`
+2. `feat/server-asset-lifecycle` (implemented)
    - Add protected launch and application-status routes.
    - Add operator authentication, shared schemas, rate limits, and route tests.
 3. `feat/monad-contract-foundation`

@@ -14,9 +14,10 @@ Cleanverse A-Pass verification and A-Token rule reads.
 The Node-only Cleanverse client supports secure transport, A-Pass generation,
 A-Pass and A-Token compliance reads, encrypted A-Token launch, application
 status reads, bounded status polling, transaction-index queries, and
-time-limited report downloads. The launch and evidence clients are not exposed
-through public Hono routes, and no live A-Pass or A-Token records have been
-created by the repository.
+time-limited report downloads. Protected Hono routes now expose A-Token launch
+and one-shot application-status reads. Transaction evidence is not yet exposed
+through a public route, and no live A-Pass or A-Token records have been created
+by the repository.
 
 The frontend is currently a static visual shell. Wallet connection, API
 integration, Monad smart-contract settlement, transaction evidence, live demo
@@ -45,12 +46,14 @@ CLEANVERSE_API_ID=your-api-id
 CLEANVERSE_API_KEY=your-base64-aes-key
 CLEANVERSE_BASE_URL=https://uatapi.cleanverse.com/api/cooperate
 CLEANVERSE_TIMEOUT_MS=10000
+ASSET_OPERATOR_TOKEN=replace-with-at-least-32-random-characters
 ```
 
 `CLEANVERSE_BASE_URL` and `CLEANVERSE_TIMEOUT_MS` are optional. The base URL
 defaults to the Cleanverse sandbox and the timeout defaults to 10 seconds.
 `CLEANVERSE_API_BASE_URL` remains accepted as a backwards-compatible base URL
-name. Cleanverse credentials must exist only in the backend environment.
+name. Cleanverse credentials and the asset operator token must exist only in
+the backend environment.
 
 Useful checks:
 
@@ -67,7 +70,7 @@ The critical path is:
 
 1. Confirm Cleanverse Issue Member access, group/subgroup codes, Monad network
    details, the A-Token ABI, and role/mint instructions.
-2. Add protected asset-lifecycle and transaction-evidence API routes.
+2. Add the protected transaction-evidence API route.
 3. Build the contracts package and Monad transfer helpers.
 4. Provision the two demo A-Passes, issue `TRWA`, grant `MINTER_ROLE`, and mint
    `1,000,000 TRWA`.
@@ -88,6 +91,16 @@ The API currently exposes:
 - `GET /ready` for validated Cleanverse client readiness
 - `POST /api/v1/compliance/preflight` for ordered sender, recipient, and
   A-Token rule checks
+- `POST /api/v1/assets/launch` for an authenticated standard A-Token launch
+- `GET /api/v1/assets/applications/:applicationRequestId` for an authenticated
+  application snapshot
+
+The two asset routes require `Authorization: Bearer <ASSET_OPERATOR_TOKEN>`.
+The launch route allows 5 authenticated requests per 60-second process window;
+the status route allows 120. A limit response is HTTP `429` and includes both
+`Retry-After` and `error.retryAfterSeconds`. Status reads are snapshots: the
+caller decides when to request the next state, and the API does not start a
+background poller.
 
 Preflight returns HTTP `200` for completed approved or denied policy
 decisions. Invalid requests return `422`; missing server configuration returns
