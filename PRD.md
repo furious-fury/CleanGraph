@@ -169,6 +169,66 @@ Cleanverse application flow is asynchronous.
 4. The terminal shows the failed check and normalized reason.
 5. CleanGraph does not request a wallet signature or broadcast a transaction.
 
+### 6.5 MVP wallet-based onboarding
+
+CleanGraph does not use email/password registration in the MVP. Both user
+types begin by connecting a Monad-compatible wallet. A wallet address is the
+identifier used for A-Pass eligibility and for signing approved transactions.
+
+```mermaid
+flowchart LR
+  subgraph Investor["Investor / Token Holder"]
+    I1["Open CleanGraph"] --> I2["Connect Monad wallet"]
+    I2 --> I3{"A-Pass found?"}
+    I3 -- "Yes" --> I4{"Eligible for TRWA?"}
+    I3 -- "No" --> I5["Contact issuer or compliance administrator"]
+    I5 --> I6["Complete identity verification outside CleanGraph"]
+    I6 --> I7["Issuer creates Cleanverse A-Pass"]
+    I7 --> I2
+    I4 -- "Yes" --> I8["Can receive or transfer TRWA"]
+    I4 -- "No" --> I9["Show safe ineligibility reason"]
+  end
+
+  subgraph Operator["Issuer / Compliance Operator"]
+    O1["Open CleanGraph"] --> O2["Connect authorized Monad wallet"]
+    O2 --> O3["Set up A-Passes and A-Token policy"]
+    O3 --> O4["Run transfer preflight"]
+    O4 --> O5{"Approved?"}
+    O5 -- "Yes" --> O6["Sign Monad transaction"]
+    O5 -- "No" --> O7["Review failed compliance rule"]
+  end
+```
+
+#### Investor or token-holder flow
+
+1. The investor opens CleanGraph and connects their Monad wallet.
+2. CleanGraph checks whether the connected address has an active Cleanverse
+   A-Pass and whether it is eligible for the selected A-Token.
+3. If eligible, the investor can receive or initiate a `TRWA` transfer and is
+   asked to sign only after the full preflight succeeds.
+4. If no A-Pass exists, CleanGraph displays a safe instruction to contact the
+   issuer or compliance administrator. It does not collect identity documents
+   or perform self-service KYC in the MVP.
+5. The authorized issuer completes any required identity process outside the
+   public CleanGraph interface and creates the A-Pass through Cleanverse. The
+   investor reconnects the same wallet after approval.
+6. If an A-Pass exists but does not satisfy the A-Token policy, CleanGraph
+   displays the safe denial reason and does not request a signature.
+
+#### Issuer or compliance-operator flow
+
+1. The operator opens CleanGraph and connects an authorized Monad wallet.
+2. The operator prepares A-Passes and the A-Token policy, then issues or
+   manages `TRWA` using protected operator functions.
+3. The operator enters a proposed recipient and amount, then runs preflight.
+4. When all checks pass, the authorized wallet signs the Monad transaction.
+5. When a check fails, the operator reviews the failed rule; no signature or
+   blockchain transfer is requested.
+
+For the MVP demo, Wallet A and Wallet B are provisioned in advance by the
+operator. There is no public A-Pass registration screen, operator login, or
+production KYC/KYB workflow.
+
 ## 7. Functional Requirements
 
 ### FR-1: Wallet connection
