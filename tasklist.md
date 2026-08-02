@@ -12,7 +12,7 @@ numbered sections below.
 
 1. [ ] Resolve Issue Member access, Cleanverse group codes, Monad network
    values, the A-Token ABI, and role/mint instructions.
-2. [ ] Add protected asset-lifecycle and transaction-evidence API routes.
+2. [x] Add protected asset-lifecycle and transaction-evidence API routes.
 3. [ ] Initialize the contracts package and implement Monad balance, transfer,
    receipt, and explorer helpers.
 4. [ ] Provision Wallet A, Wallet B, and the issued/minted `TRWA` sandbox
@@ -78,7 +78,7 @@ numbered sections below.
 4. [x] Define normalized denial codes.
 5. [ ] Define compliance-terminal event types.
 6. [x] Define A-Token application states.
-7. [ ] Define transaction-evidence states.
+7. [x] Define transaction-evidence states.
 8. [x] Export shared types for the web and API apps.
 9. [x] Add schema validation tests.
 
@@ -159,7 +159,7 @@ numbered sections below.
 10. [x] Implement `POST /api/v1/assets/launch`.
 11. [x] Restrict the asset-launch route to the demo operator.
 12. [x] Implement `GET /api/v1/assets/applications/:requestId`.
-13. [ ] Implement `POST /api/v1/transactions/evidence`.
+13. [x] Implement `POST /api/v1/transactions/evidence`.
 14. [x] Add structured, redacted logging.
 15. [x] Configure rate limits.
 16. [x] Configure restricted single-origin CORS from `API_CORS_ORIGIN`.
@@ -223,13 +223,13 @@ numbered sections below.
 
 ## 12. Transaction Evidence and Reports
 
-1. [ ] Query the confirmed transaction by hash.
-2. [ ] Handle indexer delay with bounded polling.
-3. [ ] Request the transaction or Travel Rule report.
+1. [x] Query the confirmed transaction by hash.
+2. [x] Handle indexer delay with bounded polling.
+3. [x] Request the transaction or Travel Rule report.
 4. [ ] Display the returned filename.
 5. [ ] Display the time-limited download link.
 6. [ ] Explain that the download link expires.
-7. [ ] Keep settlement confirmed if report generation is delayed.
+7. [x] Keep settlement confirmed if report generation is delayed.
 8. [ ] Test indexed, delayed, unsupported, and failed report states.
 
 ## 13. Deterministic Demo Mode

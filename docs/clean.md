@@ -251,22 +251,24 @@ The core Hono preflight endpoint already accepts a transaction intent, verifies
 both counterparties, loads the A-Token rules, and returns an ordered decision.
 The remaining backend work is:
 
-1. **Use the transaction evidence methods:** `queryTransactions` and
-   `downloadTravelRuleReport` are implemented in the client. Add bounded
-   index-delay handling in the future Hono evidence service.
+1. **Transaction evidence orchestration is complete:** The protected Hono
+   route uses `queryTransactions` and `downloadTravelRuleReport`, performs
+   bounded index polling, and keeps report availability separate from indexed
+   settlement evidence.
 
-2. **Expose asset lifecycle routes:** Add protected launch and application
-   status endpoints backed by the implemented Cleanverse client.
+2. **Asset lifecycle routes are complete:** Protected launch and application
+   status endpoints use the implemented Cleanverse client.
 
-3. **Add the transaction evidence route:** Accept a confirmed hash and return
-   normalized indexed/report states.
+3. **Evidence contracts are complete:** The route accepts a confirmed hash and
+   wallet address and returns normalized indexed/report states.
 
 4. **Build Monad helpers:** Add the supplied ABI, network configuration,
    decimal conversion, balance reads, transfer preparation, receipt waiting,
    and explorer links.
 
-5. **Harden the API:** Protect operator-only routes, add rate limiting, and
-   preserve the existing redaction and request-correlation guarantees.
+5. **Continue API hardening:** Operator-only routes, rate limiting, redaction,
+   and request correlation are implemented; secret scanning and final
+   end-to-end verification remain.
 
 The implemented preflight route is
 `POST /api/v1/compliance/preflight`; there is no

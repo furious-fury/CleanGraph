@@ -23,6 +23,10 @@ import {
   createAssetRoutes,
   type AssetFailureLog,
 } from "./routes/assets.js";
+import {
+  createEvidenceRoutes,
+  type EvidenceFailureLog,
+} from "./routes/evidence.js";
 import { createHealthRoutes } from "./routes/health.js";
 import {
   createPreflightRoutes,
@@ -33,6 +37,10 @@ import {
   type AssetLifecycleService,
 } from "./services/assets.js";
 import {
+  createEvidenceService,
+  type EvidenceService,
+} from "./services/evidence.js";
+import {
   createPreflightService,
   type PreflightService,
 } from "./services/preflight.js";
@@ -41,11 +49,14 @@ type AppOptions = {
   environment?: Environment;
   preflightService?: PreflightService | null;
   assetLifecycleService?: AssetLifecycleService | null;
+  evidenceService?: EvidenceService | null;
   assetOperatorToken?: string;
   launchRateLimit?: FixedWindowRateLimitOptions;
   statusRateLimit?: FixedWindowRateLimitOptions;
+  evidenceRateLimit?: FixedWindowRateLimitOptions;
   logFailure?: (failure: PreflightFailureLog) => void;
   logAssetFailure?: (failure: AssetFailureLog) => void;
+  logEvidenceFailure?: (failure: EvidenceFailureLog) => void;
 };
 
 export function createApp(options: AppOptions = {}) {
@@ -108,6 +119,21 @@ export function createApp(options: AppOptions = {}) {
           : { statusRateLimit: options.statusRateLimit }),
         onFailure: options.logAssetFailure ?? logAssetFailure,
       }),
+    )
+    .route(
+      "/api/v1",
+      createEvidenceRoutes({
+        ...(runtime.evidenceService === undefined
+          ? {}
+          : { service: runtime.evidenceService }),
+        ...(assetOperatorToken === undefined
+          ? {}
+          : { operatorToken: assetOperatorToken }),
+        ...(options.evidenceRateLimit === undefined
+          ? {}
+          : { rateLimit: options.evidenceRateLimit }),
+        onFailure: options.logEvidenceFailure ?? logEvidenceFailure,
+      }),
     );
 
   app.notFound((context) =>
@@ -151,6 +177,7 @@ function resolveRuntime(
 ): {
   preflightService?: PreflightService;
   assetLifecycleService?: AssetLifecycleService;
+  evidenceService?: EvidenceService;
 } {
   let client: CleanverseClient | undefined;
 
@@ -178,10 +205,16 @@ function resolveRuntime(
     : client === undefined
       ? undefined
       : createAssetLifecycleService(client);
+  const evidenceService = "evidenceService" in options
+    ? options.evidenceService ?? undefined
+    : client === undefined
+      ? undefined
+      : createEvidenceService(client);
 
   return {
     ...(preflightService === undefined ? {} : { preflightService }),
     ...(assetLifecycleService === undefined ? {} : { assetLifecycleService }),
+    ...(evidenceService === undefined ? {} : { evidenceService }),
   };
 }
 
@@ -198,6 +231,19 @@ function logPreflightFailure(failure: PreflightFailureLog): void {
 }
 
 function logAssetFailure(failure: AssetFailureLog): void {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      event: failure.event,
+      operation: failure.operation,
+      code: failure.code,
+      requestId: failure.requestId,
+      status: failure.status,
+    }),
+  );
+}
+
+function logEvidenceFailure(failure: EvidenceFailureLog): void {
   console.error(
     JSON.stringify({
       level: "error",

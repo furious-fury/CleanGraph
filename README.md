@@ -14,10 +14,9 @@ Cleanverse A-Pass verification and A-Token rule reads.
 The Node-only Cleanverse client supports secure transport, A-Pass generation,
 A-Pass and A-Token compliance reads, encrypted A-Token launch, application
 status reads, bounded status polling, transaction-index queries, and
-time-limited report downloads. Protected Hono routes now expose A-Token launch
-and one-shot application-status reads. Transaction evidence is not yet exposed
-through a public route, and no live A-Pass or A-Token records have been created
-by the repository.
+time-limited report downloads. Protected Hono routes now expose A-Token launch,
+one-shot application-status reads, and bounded transaction-evidence reads. No
+live A-Pass or A-Token records have been created by the repository.
 
 The frontend is currently a static visual shell. Wallet connection, API
 integration, Monad smart-contract settlement, transaction evidence, live demo
@@ -70,15 +69,14 @@ The critical path is:
 
 1. Confirm Cleanverse Issue Member access, group/subgroup codes, Monad network
    details, the A-Token ABI, and role/mint instructions.
-2. Add the protected transaction-evidence API route.
-3. Build the contracts package and Monad transfer helpers.
-4. Provision the two demo A-Passes, issue `TRWA`, grant `MINTER_ROLE`, and mint
+2. Build the contracts package and Monad transfer helpers.
+3. Provision the two demo A-Passes, issue `TRWA`, grant `MINTER_ROLE`, and mint
    `1,000,000 TRWA`.
-5. Connect the frontend to preflight, render ordered compliance checks, and
+4. Connect the frontend to preflight, render ordered compliance checks, and
    add the selected Monad wallet provider.
-6. Prove an eligible transfer confirms and the Wallet B scenario stops before
+5. Prove an eligible transfer confirms and the Wallet B scenario stops before
    signing.
-7. Complete evidence/report states, end-to-end tests, deployment, and
+6. Complete evidence/report UI states, end-to-end tests, deployment, and
    submission.
 
 See [PRD.md](./PRD.md), [Implementation_plan.md](./Implementation_plan.md), and
@@ -94,6 +92,8 @@ The API currently exposes:
 - `POST /api/v1/assets/launch` for an authenticated standard A-Token launch
 - `GET /api/v1/assets/applications/:applicationRequestId` for an authenticated
   application snapshot
+- `POST /api/v1/transactions/evidence` for authenticated indexed transaction
+  evidence and report availability
 
 The two asset routes require `Authorization: Bearer <ASSET_OPERATOR_TOKEN>`.
 The launch route allows 5 authenticated requests per 60-second process window;
@@ -101,6 +101,15 @@ the status route allows 120. A limit response is HTTP `429` and includes both
 `Retry-After` and `error.retryAfterSeconds`. Status reads are snapshots: the
 caller decides when to request the next state, and the API does not start a
 background poller.
+
+The evidence route accepts a confirmed Monad transaction hash and wallet
+address. It makes up to three index reads one second apart and returns HTTP
+`200` with either `index.status: "PENDING"` or `"INDEXED"`. Reports are requested
+only for indexed transactions. A known report failure returns
+`report.status: "UNAVAILABLE"` without changing the indexed settlement state.
+The route allows 20 authenticated requests per 60-second process window and
+sets `Cache-Control: no-store` because available report URLs are time-limited
+and may contain bearer-like tokens. Never log or persist those URLs.
 
 Preflight returns HTTP `200` for completed approved or denied policy
 decisions. Invalid requests return `422`; missing server configuration returns

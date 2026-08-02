@@ -113,3 +113,16 @@ Only `IA...` standard launch identifiers are public. `ISSUED` is the only
 successful state and requires an A-Token address, transaction hash, and issue
 timestamp. `REJECTED` and `ISSUE_FAILED` remain successful HTTP `200` status
 reads with normalized failure evidence.
+
+## Transaction evidence contracts
+
+The package exports `transactionEvidenceRequestSchema`,
+`transactionEvidenceResponseSchema`, and `evidenceErrorResponseSchema` for the
+protected post-settlement evidence flow. Requests contain the Monad transaction
+hash and involved wallet address. Responses keep index and report state
+separate: an empty index is `PENDING`, while an indexed transaction may have an
+`AVAILABLE` or `UNAVAILABLE` report.
+
+Amounts and fees remain base-unit strings and block times remain Unix seconds.
+Available report URLs must use HTTPS and may be time-limited, so callers must
+not cache, persist, or log them.

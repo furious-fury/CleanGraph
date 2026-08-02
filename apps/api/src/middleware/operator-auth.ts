@@ -1,11 +1,25 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-import type { AssetErrorResponse } from "@cleangraph/shared";
 import { createMiddleware } from "hono/factory";
 
 import type { AppVariables } from "./request-context.js";
 
-export function createOperatorAuth(configuredToken: string | undefined) {
+type OperatorAuthOptions = {
+  notConfiguredMessage?: string;
+};
+
+type OperatorAuthErrorResponse = {
+  requestId: string;
+  error: {
+    code: "SERVICE_NOT_CONFIGURED" | "UNAUTHORIZED";
+    message: string;
+  };
+};
+
+export function createOperatorAuth(
+  configuredToken: string | undefined,
+  options: OperatorAuthOptions = {},
+) {
   const configuredDigest = configuredToken
     ? createHash("sha256").update(configuredToken).digest()
     : undefined;
@@ -14,7 +28,15 @@ export function createOperatorAuth(configuredToken: string | undefined) {
     const requestId = context.get("requestId");
 
     if (configuredDigest === undefined) {
-      return context.json(assetError(requestId, "SERVICE_NOT_CONFIGURED", "Asset operator authentication is not configured."), 503);
+      return context.json(
+        operatorAuthError(
+          requestId,
+          "SERVICE_NOT_CONFIGURED",
+          options.notConfiguredMessage ??
+            "Asset operator authentication is not configured.",
+        ),
+        503,
+      );
     }
 
     const authorization = context.req.header("Authorization");
@@ -25,17 +47,24 @@ export function createOperatorAuth(configuredToken: string | undefined) {
 
     if (submittedDigest === undefined || !timingSafeEqual(configuredDigest, submittedDigest)) {
       context.header("WWW-Authenticate", "Bearer");
-      return context.json(assetError(requestId, "UNAUTHORIZED", "Valid operator credentials are required."), 401);
+      return context.json(
+        operatorAuthError(
+          requestId,
+          "UNAUTHORIZED",
+          "Valid operator credentials are required.",
+        ),
+        401,
+      );
     }
 
     await next();
   });
 }
 
-function assetError(
+function operatorAuthError(
   requestId: string,
   code: "SERVICE_NOT_CONFIGURED" | "UNAUTHORIZED",
   message: string,
-): AssetErrorResponse {
+): OperatorAuthErrorResponse {
   return { requestId, error: { code, message } };
 }
