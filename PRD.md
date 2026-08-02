@@ -175,6 +175,30 @@ CleanGraph does not use email/password registration in the MVP. Both user
 types begin by connecting a Monad-compatible wallet. A wallet address is the
 identifier used for A-Pass eligibility and for signing approved transactions.
 
+```mermaid
+flowchart LR
+  subgraph Investor["Investor / Token Holder"]
+    I1["Open CleanGraph"] --> I2["Connect Monad wallet"]
+    I2 --> I3{"A-Pass found?"}
+    I3 -- "Yes" --> I4{"Eligible for TRWA?"}
+    I3 -- "No" --> I5["Contact issuer or compliance administrator"]
+    I5 --> I6["Complete identity verification outside CleanGraph"]
+    I6 --> I7["Issuer creates Cleanverse A-Pass"]
+    I7 --> I2
+    I4 -- "Yes" --> I8["Can receive or transfer TRWA"]
+    I4 -- "No" --> I9["Show safe ineligibility reason"]
+  end
+
+  subgraph Operator["Issuer / Compliance Operator"]
+    O1["Open CleanGraph"] --> O2["Connect authorized Monad wallet"]
+    O2 --> O3["Set up A-Passes and A-Token policy"]
+    O3 --> O4["Run transfer preflight"]
+    O4 --> O5{"Approved?"}
+    O5 -- "Yes" --> O6["Sign Monad transaction"]
+    O5 -- "No" --> O7["Review failed compliance rule"]
+  end
+```
+
 #### Investor or token-holder flow
 
 1. The investor opens CleanGraph and connects their Monad wallet.
