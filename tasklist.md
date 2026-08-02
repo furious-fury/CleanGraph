@@ -77,7 +77,7 @@ numbered sections below.
 3. [x] Define CleanGraph decision and check schemas.
 4. [x] Define normalized denial codes.
 5. [ ] Define compliance-terminal event types.
-6. [ ] Define A-Token application states.
+6. [x] Define A-Token application states.
 7. [ ] Define transaction-evidence states.
 8. [x] Export shared types for the web and API apps.
 9. [x] Add schema validation tests.
@@ -156,12 +156,12 @@ numbered sections below.
 7. [x] Confirm that preflight has no application-level amount-limit check.
 8. [x] Build the ordered check result.
 9. [x] Return approval only when every required check passes.
-10. [ ] Implement `POST /api/v1/assets/launch`.
-11. [ ] Restrict the asset-launch route to the demo operator.
-12. [ ] Implement `GET /api/v1/assets/applications/:requestId`.
+10. [x] Implement `POST /api/v1/assets/launch`.
+11. [x] Restrict the asset-launch route to the demo operator.
+12. [x] Implement `GET /api/v1/assets/applications/:requestId`.
 13. [ ] Implement `POST /api/v1/transactions/evidence`.
 14. [x] Add structured, redacted logging.
-15. [ ] Configure rate limits.
+15. [x] Configure rate limits.
 16. [x] Configure restricted single-origin CORS from `API_CORS_ORIGIN`.
 17. [x] Test policy denial separately from API failure.
 

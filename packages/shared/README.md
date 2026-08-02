@@ -75,3 +75,41 @@ The preflight endpoint uses these HTTP statuses:
 - `502`: Cleanverse unavailable or returned an invalid response
 - `504`: Cleanverse request timed out
 - `500`: unexpected internal failure
+
+## Asset lifecycle contracts
+
+The package exports `assetLaunchRequestSchema`, `assetLaunchResponseSchema`,
+`assetApplicationResponseSchema`, and `assetErrorResponseSchema` for the
+protected operator flow. It also owns the v5.6 Cleanverse country-code schema,
+which is shared by the browser contract and Node-only Cleanverse client.
+
+```ts
+import {
+  assetApplicationResponseSchema,
+  assetLaunchRequestSchema,
+  type AssetLaunchRequest,
+} from "@cleangraph/shared";
+
+const launch: AssetLaunchRequest = assetLaunchRequestSchema.parse({
+  chain: "monad",
+  tokenName: "Tokenized Real-World Asset",
+  tokenSymbol: "TRWA",
+  decimals: 18,
+  adminAddress: "0x1111111111111111111111111111111111111111",
+  rule: {
+    allowedGroup: "II",
+    allowedSubGroup: "AI",
+    minTier: 1,
+    minSubTier: 0,
+    countries: ["NG"],
+  },
+  icon: "https://assets.example.com/trwa.svg",
+});
+
+const snapshot = assetApplicationResponseSchema.parse(await response.json());
+```
+
+Only `IA...` standard launch identifiers are public. `ISSUED` is the only
+successful state and requires an A-Token address, transaction hash, and issue
+timestamp. `REJECTED` and `ISSUE_FAILED` remain successful HTTP `200` status
+reads with normalized failure evidence.
