@@ -106,6 +106,23 @@ describe("transaction evidence contracts", () => {
     expect(transactionEvidenceResponseSchema.safeParse(response).success).toBe(false);
   });
 
+  it.each([
+    "https://user:pass@reports.example/report.pdf",
+    "https://reports.example/report.pdf#token",
+  ])("rejects unsafe report URL %s", (downloadUrl) => {
+    expect(
+      transactionEvidenceResponseSchema.safeParse({
+        requestId,
+        index: { status: "INDEXED", attempts: 1, transaction },
+        report: {
+          status: "AVAILABLE",
+          fileName: "report.pdf",
+          downloadUrl,
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts a sanitized rate-limit error", () => {
     expect(
       evidenceErrorResponseSchema.safeParse({

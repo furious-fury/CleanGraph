@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createEvidenceService,
   type CleanverseEvidenceClient,
+  UnexpectedEvidenceReportError,
 } from "../src/services/evidence.js";
 
 const requestId = "123e4567-e89b-42d3-a456-426614174000";
@@ -171,8 +172,11 @@ describe("transaction evidence service", () => {
     client.queryTransactions.mockResolvedValue(indexedResult);
     client.downloadTravelRuleReport.mockRejectedValue(new Error("unexpected secret"));
 
-    await expect(
-      createEvidenceService(client).getEvidence(input, requestId),
-    ).rejects.toThrow("unexpected secret");
+    const error = await createEvidenceService(client)
+      .getEvidence(input, requestId)
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(UnexpectedEvidenceReportError);
+    expect(JSON.stringify(error)).not.toContain("unexpected secret");
   });
 });

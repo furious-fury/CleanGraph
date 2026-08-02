@@ -260,7 +260,7 @@ layers.
 
 An empty successful result is valid and may mean that Cleanverse has not
 indexed the confirmed Monad transaction yet. This method does not poll and
-does not convert an empty page into a settlement failure. The future Hono
+does not convert an empty page into a settlement failure. The Hono
 evidence service owns bounded index polling.
 
 Use `downloadTravelRuleReport` for either a supported A-Token transfer report
@@ -294,6 +294,6 @@ status.
 
 ## Current boundary
 
-Hono asset-launch and evidence routes, index polling, live sandbox issuance,
-role grants, minting, and public A-Pass provisioning routes are intentionally
-deferred.
+Hono asset-launch, application-status, and transaction-evidence routes are
+implemented. Live sandbox issuance, role grants, minting, and public A-Pass
+provisioning routes remain intentionally deferred.

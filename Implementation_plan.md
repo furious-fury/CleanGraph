@@ -49,7 +49,6 @@ Completed and merged:
 
 Not yet implemented:
 
-- protected asset-launch/application routes and the evidence route;
 - the contracts package, Monad configuration, A-Token ABI helpers, balance
   reads, minting support, and transfer execution;
 - wallet connection and all live frontend/API integration;
@@ -311,7 +310,11 @@ seconds.
 ### `POST /api/v1/transactions/evidence`
 
 Accepts a confirmed transaction hash and returns indexed transaction details
-plus report availability.
+plus report availability. The protected route makes up to three index reads one
+second apart, returns pending index state without treating settlement as
+failed, and requests a report only after indexing. Known report failures remain
+a separate unavailable report state. The route allows 20 authenticated
+requests per 60 seconds and prevents response caching.
 
 ### Progress transport
 
@@ -427,9 +430,9 @@ they block live provisioning and settlement.
 - Completed: pnpm workspace, Vite/React, Hono, shared preflight schemas,
   decision codes, environment validation, linting, tests, and root build
   commands.
-- Remaining: contracts package, formatting command, secret scanning, terminal
-  event types, application-state contracts for browser/API use, and
-  transaction-evidence contracts.
+- Completed: browser/API application-state and transaction-evidence contracts.
+- Remaining: contracts package, formatting command, secret scanning, and
+  terminal event types.
 
 ### Phase 2: Cleanverse client — MVP methods complete
 
@@ -447,7 +450,7 @@ they block live provisioning and settlement.
 - Grant `MINTER_ROLE` and mint `1,000,000 TRWA`.
 - Record only non-secret addresses and transaction hashes.
 
-### Phase 4: Orchestration API — preflight and asset lifecycle complete
+### Phase 4: Orchestration API — complete for the MVP
 
 - Completed: health, readiness, preflight validation, sender/recipient
   verification, rule retrieval, ordered decisions, restricted single-origin
@@ -455,7 +458,8 @@ they block live provisioning and settlement.
 - Completed: protected standard A-Token launch, application-status snapshots,
   operator bearer authentication, shared lifecycle schemas, and fixed-window
   rate limits.
-- Remaining: the transaction-evidence route.
+- Completed: protected transaction-evidence orchestration, bounded index
+  polling, report availability, no-store responses, and evidence route tests.
 
 ### Phase 5: Frontend — visual shell only
 
@@ -495,7 +499,7 @@ Use a separate branch and PR for each independently reviewable unit:
    - Initialize `packages/contracts`.
    - Add verified Monad configuration, the supplied A-Token ABI, metadata,
      decimal conversion, balance reads, and transfer preparation.
-4. `feat/server-transaction-evidence`
+4. `feat/server-transaction-evidence` (implemented)
    - Add transaction-hash validation, bounded index polling, and report
      availability responses.
 5. `feat/web-preflight-terminal` (frontend owner)

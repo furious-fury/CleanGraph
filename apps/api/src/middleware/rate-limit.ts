@@ -1,4 +1,3 @@
-import type { AssetErrorResponse } from "@cleangraph/shared";
 import { createMiddleware } from "hono/factory";
 
 import type { AppVariables } from "./request-context.js";
@@ -7,6 +6,16 @@ export type FixedWindowRateLimitOptions = {
   limit: number;
   windowMs: number;
   clock?: () => number;
+  message?: string;
+};
+
+type RateLimitErrorResponse = {
+  requestId: string;
+  error: {
+    code: "RATE_LIMITED";
+    message: string;
+    retryAfterSeconds: number;
+  };
 };
 
 export function createFixedWindowRateLimit(options: FixedWindowRateLimitOptions) {
@@ -24,11 +33,12 @@ export function createFixedWindowRateLimit(options: FixedWindowRateLimitOptions)
     count += 1;
     if (count > options.limit) {
       const retryAfterSeconds = Math.max(1, Math.ceil((windowStartedAt + options.windowMs - now) / 1_000));
-      const response: AssetErrorResponse = {
+      const response: RateLimitErrorResponse = {
         requestId: context.get("requestId"),
         error: {
           code: "RATE_LIMITED",
-          message: "Too many asset lifecycle requests.",
+          message:
+            options.message ?? "Too many asset lifecycle requests.",
           retryAfterSeconds,
         },
       };

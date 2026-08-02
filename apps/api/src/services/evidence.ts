@@ -26,6 +26,13 @@ export type EvidenceService = {
   ): Promise<EvidenceServiceResult>;
 };
 
+export class UnexpectedEvidenceReportError extends Error {
+  constructor() {
+    super("An unexpected report error occurred.");
+    this.name = "UnexpectedEvidenceReportError";
+  }
+}
+
 type EvidenceServiceOptions = {
   maxAttempts?: number;
   intervalMs?: number;
@@ -107,7 +114,9 @@ export function createEvidenceService(
             },
           };
         } catch (error) {
-          if (!(error instanceof CleanverseError)) throw error;
+          if (!(error instanceof CleanverseError)) {
+            throw new UnexpectedEvidenceReportError();
+          }
 
           return {
             response: {
