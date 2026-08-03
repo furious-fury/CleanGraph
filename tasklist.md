@@ -1,294 +1,192 @@
 # CleanGraph Task List
 
-**Status:** Active v0.3
-**Rule:** Complete sections in order unless a task is explicitly marked as
-parallel-safe.
+**Status:** Active self-deployed TRWA MVP
+
 **Last reconciled with code:** August 3, 2026
 
-## Remaining MVP Critical Path
+## Critical path
 
-This summary is the build order. The detailed acceptance tasks remain in the
-numbered sections below.
+1. [x] Implement and test the fixed-supply TRWA contract package.
+2. [ ] Review and merge the contract PR.
+3. [ ] Deploy and verify TRWA on Monad testnet.
+4. [x] Refactor backend preflight to Cleanverse A-Pass reads plus local policy.
+5. [ ] Rebase/merge the backend PR after recording the verified address.
+6. [ ] Provision Wallet A and Wallet B A-Passes.
+7. [ ] Integrate frontend preflight, wallet signing, and receipt confirmation.
+8. [ ] Run live approved and pre-signature-denied journeys.
+9. [ ] Finish evidence UI, deployment, smoke tests, and submission.
 
-1. [ ] Resolve Cleanverse group codes and Monad network values.
-2. [x] Add protected asset-lifecycle and transaction-evidence API routes.
-3. [x] Initialize the contracts package and implement Monad balance, transfer,
-   receipt, and explorer helpers.
-4. [ ] Review, deploy, and verify the fixed-supply `TRWA` contract on Monad
-   testnet, then provision Wallet A and Wallet B A-Passes.
-5. [ ] Connect the frontend to shared contracts and the preflight API, then
-   render the ordered compliance terminal.
-6. [ ] Connect a Monad wallet and complete the approved transfer flow while
-   proving the denied flow stops before signing.
-7. [ ] Complete transaction-evidence orchestration, end-to-end tests, secret
-   scanning, and demo hardening.
-8. [ ] Deploy to the VPS and Vercel, run production smoke tests, and finish the
-   submission package.
+## 1. Product and policy decisions
 
-## 0. Product Decisions and External Access
+1. [x] Choose `Tokenized Real-World Asset`, `TRWA`, and 18 decimals.
+2. [x] Fix supply at `1,000,000 TRWA` in the constructor.
+3. [x] Mint the full initial supply to a nonzero deployment treasury.
+4. [x] Define TRWA as a self-deployed hackathon ERC-20, not an official
+   Cleanverse A-Token.
+5. [x] Define compliance as application-level only.
+6. [x] Document that direct ERC-20 transfers can bypass preflight.
+7. [x] Choose local group `Institutional Investor`.
+8. [x] Choose local subgroup `Accredited Investor`.
+9. [x] Choose country allowlist `US`, `GB`, `DE`, and `SG`.
+10. [x] Exclude tier, sub-tier, and transfer amount policy from the MVP.
+11. [x] Define Wallet A with allowed country `GB`.
+12. [x] Define Wallet B with denied country `BR`.
+13. [ ] Confirm live Cleanverse group and subgroup values.
+14. [ ] Confirm final Monad testnet RPC, chain ID, and explorer.
 
-1. [x] Define the RWA as a demo interest in a fictional short-term United
-   States Treasury-bill portfolio.
-2. [x] Define regulated traditional-finance institutions as the primary
-   customer.
-3. [x] Choose `Tokenized Real-World Asset`, symbol `TRWA`, 18 decimals, and a
-   `1,000,000 TRWA` demo supply.
-4. [x] Map accreditation logically to group `Institutional Investor` and
-   subgroup `Accredited Investor`.
-5. [x] Choose the country allowlist: `US`, `GB`, `DE`, and `SG`.
-6. [x] Define Wallet A as active, unexpired, correctly grouped, and tagged
-   with country `GB`.
-7. [x] Define Wallet B with the same valid investor attributes and country
-   `BR`, so only the country rule fails.
-8. [x] Exclude a CleanGraph per-transfer amount limit from the MVP.
-9. [ ] Decide whether to include clearly labelled deterministic demo mode.
-10. [x] Record the ownership split: project lead handles backend work and the
-    project partner handles frontend work.
-11. [ ] Confirm the sandbox IDs for the `Institutional Investor` and
-    `Accredited Investor` mapping.
-12. [ ] Confirm the Cleanverse API ID has Issue Member permissions.
-13. [x] Replace the official A-Token path with a self-deployed demo ERC-20.
-14. [x] Remove mint-role requirements by fixing supply in the constructor.
-15. [ ] Confirm the Monad sandbox chain ID, RPC URL, and explorer URL.
+## 2. Contract package
 
-## 1. Workspace Foundation
+1. [x] Initialize `packages/contracts` as Foundry and pnpm package.
+2. [x] Pin OpenZeppelin Contracts and Solidity.
+3. [x] Implement the fixed-supply TRWA constructor.
+4. [x] Reject a zero treasury.
+5. [x] Exclude mint, owner, pause, allowlist, upgrade, and admin paths.
+6. [x] Add metadata and exact-supply tests.
+7. [x] Add treasury allocation and zero-treasury tests.
+8. [x] Add normal and fuzz transfer tests.
+9. [x] Add insufficient-balance and zero-recipient tests.
+10. [x] Test that no callable mint path exists.
+11. [x] Add guarded Foundry deployment script.
+12. [x] Read deployer key, treasury, chain ID, and RPC configuration.
+13. [x] Validate the connected chain before deployment.
+14. [x] Add contract checks to root workspace gates.
 
-1. [x] Choose pnpm as the package manager.
-2. [x] Configure the root workspace.
-3. [x] Initialize `apps/web` with Vite, React, and TypeScript.
-4. [x] Initialize `apps/api` with Node.js and TypeScript.
-5. [x] Select and configure Hono.
-6. [x] Initialize `packages/shared`.
-7. [x] Initialize `packages/cleanverse-client`.
-8. [x] Initialize `packages/contracts`.
-9. [x] Add TypeScript workspace aliases for the frontend.
-10. [x] Configure Oxlint for the frontend.
-11. [x] Configure Foundry formatting for contracts.
-12. [x] Configure the test runner.
-13. [x] Add root type-check, lint, and build scripts.
-14. [ ] Add secret-scanning checks.
-15. [x] Verify `.env` files and private keys are ignored.
+## 3. TypeScript contract helpers
 
-## 2. Shared Types and Configuration
+1. [x] Export a minimal verified TRWA ABI.
+2. [x] Export name, symbol, decimals, and fixed supply.
+3. [x] Validate caller-supplied Monad chain, HTTPS RPC, and explorer values.
+4. [x] Parse and format TRWA amounts without floating point.
+5. [x] Reject zero, excessive precision, malformed values, and uint256 overflow.
+6. [x] Read token balance and metadata.
+7. [x] Simulate transfer using an external wallet account.
+8. [x] Wait for receipts and throw explicitly on revert.
+9. [x] Generate validated explorer address and transaction URLs.
+10. [x] Confirm helpers never read a private key or create a wallet.
+11. [x] Add focused viem helper tests.
 
-1. [x] Define environment-variable schemas.
-2. [x] Define EVM address and transaction-intent schemas.
-3. [x] Define CleanGraph decision and check schemas.
-4. [x] Define normalized denial codes.
-5. [ ] Define compliance-terminal event types.
-6. [x] Define A-Token application states.
-7. [x] Define transaction-evidence states.
-8. [x] Export shared types for the web and API apps.
-9. [x] Add schema validation tests.
+## 4. Deployment checkpoint
 
-## 3. Cleanverse Client Foundation
+Warning: complete only after contract review. Never commit the deployer key,
+seed, funded environment file, or operator token.
 
-1. [x] Configure the sandbox base URL.
-2. [x] Add the `api-id` header.
-3. [x] Generate a UUID `X-Request-ID` for each operation.
-4. [x] Decode the Base64 API key only on the backend.
-5. [x] Implement AES/CBC encryption with a 16-byte zero IV.
-6. [x] Encode protected payloads as `{ "data": "<ciphertext>" }`.
-7. [x] Add request timeout handling.
-8. [x] Parse the Cleanverse response envelope.
-9. [x] Separate HTTP failures from Cleanverse business failures.
-10. [x] Redact secrets and sensitive values from errors and logs.
-11. [x] Add known-vector encryption tests.
-12. [x] Add response-envelope tests.
+1. [ ] Install Foundry permanently and confirm `forge`, `cast`, and `anvil`.
+2. [ ] Fund a controlled deployer with Monad testnet MON.
+3. [ ] Run `forge fmt --check`, `forge build`, and `forge test`.
+4. [ ] Run the deployment script without `--broadcast`.
+5. [ ] Confirm the simulation uses the intended chain and treasury.
+6. [ ] Broadcast exactly once.
+7. [ ] Confirm contract bytecode exists.
+8. [ ] Confirm name, symbol, and 18 decimals.
+9. [ ] Confirm total supply is `1,000,000 × 10^18`.
+10. [ ] Confirm the treasury owns the initial supply.
+11. [ ] Perform one small test transfer.
+12. [ ] Verify source on the selected explorer when supported.
+13. [ ] Record public address, deployment transaction, chain ID, and links.
 
-## 4. Cleanverse Read Endpoints
+## 5. Backend configuration
 
-1. [x] Implement `queryAPass`.
-2. [x] Implement `queryATokenRules`.
-3. [x] Implement `verifyAPassForToken`.
-4. [x] Map verification code `1` to `ATOKEN_NOT_FOUND`.
-5. [x] Map verification code `2` to `APASS_MISSING`.
-6. [x] Map verification code `3` to `APASS_NOT_ELIGIBLE`.
-7. [x] Map verification code `4` to `ELIGIBLE`.
-8. [x] Implement `queryTransactions`.
-9. [x] Implement `downloadTravelRuleReport`.
-10. [x] Add sanitized fixtures for every implemented read-result state.
-11. [x] Test all implemented read methods with mocked v5.6 responses.
-12. [x] Run a sandbox read-endpoint smoke test.
+1. [x] Add `TRWA_TOKEN_ADDRESS`.
+2. [x] Add exact `TRWA_ALLOWED_GROUP` and `TRWA_ALLOWED_SUBGROUP`.
+3. [x] Parse `TRWA_ALLOWED_COUNTRIES` as unique uppercase comma-separated codes.
+4. [x] Require all four policy values together.
+5. [x] Leave preflight safely unavailable when all policy values are absent.
+6. [x] Reject partial or malformed policy configuration.
+7. [x] Replace `ASSET_OPERATOR_TOKEN` with `OPERATOR_TOKEN`.
+8. [x] Keep `OPERATOR_TOKEN` backend-only.
+9. [ ] Configure the verified testnet address in the deployed API.
 
-## 5. A-Pass Setup Flow
+## 6. Preflight orchestration
 
-1. [x] Implement the encrypted `generateAPass` client method.
-2. [x] Validate 12-character alphanumeric customer IDs.
-3. [x] Validate Monad wallet addresses.
-4. [x] Validate expiration timestamps.
-5. [x] Validate ISO country codes.
-6. [x] Avoid storing raw identity and bank data in application logs.
-7. [ ] Create Wallet A's sandbox A-Pass.
-8. [ ] Confirm Wallet A is active with `queryAPass`.
-9. [ ] Create Wallet B's sandbox A-Pass.
-10. [ ] Confirm Wallet B has the intended ineligible attributes.
-11. [ ] Record only safe record IDs, addresses, and transaction hashes.
+1. [x] Rename request field to `tokenAddress`.
+2. [x] Reject `atokenAddress` and unknown request properties.
+3. [x] Reject unsupported token addresses before Cleanverse calls.
+4. [x] Query sender with `queryAPass` and the incoming request ID.
+5. [x] Deny and stop when sender fails.
+6. [x] Query recipient only after sender passes.
+7. [x] Require `ACTIVE` status.
+8. [x] Require expiration strictly after current Unix time.
+9. [x] Require exact group and subgroup matches.
+10. [x] Require at least one allowed country.
+11. [x] Avoid tier, sub-tier, and amount-limit policy.
+12. [x] Return sender/recipient inactive, expired, and policy-mismatch codes.
+13. [x] Return a CleanGraph-owned local asset policy success check.
+14. [x] Preserve only sanitized completed checks on infrastructure failure.
+15. [x] Preserve request IDs across both A-Pass calls.
 
-## 6. A-Token Issuance Flow
+## 7. Removed official A-Token API path
 
-1. [x] Implement the encrypted `launchAToken` client method.
-2. [x] Validate token metadata and admin address.
-3. [x] Build the initial tier/group/country rule.
-4. [x] Implement `queryATokenApplication`.
-5. [x] Add bounded polling for application status.
-6. [x] Treat only `ISSUED` as success.
-7. [x] Normalize rejection and issuance-failure reasons safely in the client.
-8. [ ] Display normalized rejection and issuance-failure reasons in the
-   operator UI.
-9. [ ] Submit the Monad A-Token launch request.
-10. [ ] Wait for the application to reach `ISSUED`.
-11. [ ] Record the issued A-Token address and transaction hash.
-12. [ ] Load and verify the on-chain A-Token rule.
-13. [ ] Grant `MINTER_ROLE` using the supplied contract instructions.
-14. [ ] Mint the demo supply.
-15. [ ] Verify Wallet A's A-Token balance.
+1. [x] Remove Hono asset launch route.
+2. [x] Remove Hono application-status route.
+3. [x] Remove the asset lifecycle service and route tests.
+4. [x] Remove public asset lifecycle schemas and tests.
+5. [x] Return `404` for removed route paths.
+6. [x] Retain tested low-level A-Token client methods as optional functionality.
+7. [x] Remove documentation claims that Cleanverse deploys, registers, mints,
+   or enforces TRWA.
 
-## 7. Orchestration API
+## 8. Evidence API
 
-1. [x] Implement `GET /health`.
-2. [x] Implement request validation for transaction intents.
-3. [x] Implement `POST /api/v1/compliance/preflight`.
-4. [x] Verify the sender against the selected A-Token.
-5. [x] Verify the recipient against the selected A-Token.
-6. [x] Load A-Token rules for display evidence.
-7. [x] Confirm that preflight has no application-level amount-limit check.
-8. [x] Build the ordered check result.
-9. [x] Return approval only when every required check passes.
-10. [x] Implement `POST /api/v1/assets/launch`.
-11. [x] Restrict the asset-launch route to the demo operator.
-12. [x] Implement `GET /api/v1/assets/applications/:requestId`.
-13. [x] Implement `POST /api/v1/transactions/evidence`.
-14. [x] Add structured, redacted logging.
-15. [x] Configure rate limits.
-16. [x] Configure restricted single-origin CORS from `API_CORS_ORIGIN`.
-17. [x] Test policy denial separately from API failure.
+1. [x] Protect evidence with `OPERATOR_TOKEN`.
+2. [x] Authenticate before rate limiting.
+3. [x] Limit to 20 authenticated requests per 60 seconds.
+4. [x] Exclude unauthorized requests from the count.
+5. [x] Poll transaction index at most three times.
+6. [x] Request reports only after indexed evidence.
+7. [x] Preserve indexed evidence on known report failures.
+8. [x] Set `Cache-Control: no-store`.
+9. [x] Redact transaction inputs, report URLs, filenames, and upstream messages.
+10. [x] Document unregistered TRWA indexing/report support as best-effort.
+11. [ ] Verify live index and report behavior after a testnet transfer.
 
-## 8. Monad Contract Integration
+## 9. Frontend and wallet work
 
-1. [x] Add validated caller-supplied Monad network construction.
-2. [x] Add the minimal verified TRWA ABI.
-3. [x] Add fixed TRWA metadata and supply constants.
-4. [x] Implement TRWA balance and metadata reads.
-5. [x] Implement decimal-safe amount parsing and formatting.
-6. [x] Implement TRWA transfer simulation with an external wallet account.
-7. [ ] Implement the wallet-signed transfer.
-8. [x] Implement receipt confirmation with explicit revert handling.
-9. [x] Implement Monad explorer address and transaction links.
-10. [ ] Test an eligible transfer.
-11. [ ] Confirm an ineligible transfer is blocked before signing.
+1. [ ] Add shared and contracts workspace dependencies to the web app.
+2. [ ] Configure public Monad chain, explorer, and TRWA address.
+3. [ ] Connect and restore a Monad-compatible wallet session.
+4. [ ] Detect and switch the active chain.
+5. [ ] Validate recipient and decimal amount.
+6. [ ] Submit strict preflight using `tokenAddress`.
+7. [ ] Render normalized checks and request ID.
+8. [ ] Ensure denial never invokes a wallet signature request.
+9. [ ] Read balance and simulate transfer after approval.
+10. [ ] Request the external wallet signature and broadcast.
+11. [ ] Render pending, confirmed, reverted, and rejected-signature states.
+12. [ ] Link the confirmed transaction to the explorer.
+13. [ ] Render evidence pending/indexed and report available/unavailable states.
+14. [ ] Warn that report URLs expire.
 
-## 9. Wallet Integration
+## 10. Live demo preparation
 
-1. [ ] Validate Privy support for Monad.
-2. [ ] Compare an alternative if Privy cannot support the required flow.
-3. [ ] Configure the selected wallet provider.
-4. [ ] Implement connect and disconnect.
-5. [ ] Display the connected address.
-6. [ ] Detect the active chain.
-7. [ ] Prompt the user to switch to Monad.
-8. [ ] Disable transfer actions on the wrong chain.
-9. [ ] Test connection restoration.
-10. [ ] Test rejected signature handling.
+1. [ ] Create or confirm Wallet A A-Pass.
+2. [ ] Confirm Wallet A is active, unexpired, and policy matching.
+3. [ ] Create or confirm Wallet B A-Pass.
+4. [ ] Confirm Wallet B fails only the intended country policy.
+5. [ ] Fund the sender wallet with MON for gas when needed.
+6. [ ] Transfer demo TRWA from the treasury to the intended sender if needed.
+7. [ ] Record only safe public identifiers.
 
-## 10. Frontend Transfer Experience
+## 11. Quality and security
 
-1. [x] Build the application shell and responsive split layout.
-2. [x] Build the initial asset summary.
-3. [x] Build the recipient field.
-4. [x] Build the amount field.
-5. [ ] Add client-side validation.
-6. [ ] Add Wallet A and Wallet B demo selectors.
-7. [ ] Connect the form to the preflight API.
-8. [ ] Prevent duplicate submission.
-9. [ ] Request a signature only after approval.
-10. [ ] Show transaction pending state.
-11. [ ] Show transaction confirmation.
-12. [ ] Show transaction failure safely.
+1. [x] Run contract formatting, build, and tests for the contract PR.
+2. [x] Run repository lint, type-check, tests, and build for the contract PR.
+3. [ ] Run all gates for the backend PR after final documentation changes.
+4. [ ] Add frontend component and end-to-end tests.
+5. [ ] Run approved-transfer end-to-end test.
+6. [ ] Run denied-before-signature end-to-end test.
+7. [ ] Scan the repository and deployment configuration for secrets.
+8. [ ] Review logs for identity, wallet, hash, and report URL leakage.
+9. [ ] Review every demo and pitch claim for the application-level limitation.
 
-## 11. Compliance Terminal
+## 12. Deployment and submission
 
-1. [x] Choose one ordered preflight response; defer Server-Sent Events.
-2. [ ] Define terminal event labels.
-3. [ ] Build pending event styling.
-4. [ ] Build approved event styling.
-5. [ ] Build denied event styling.
-6. [ ] Build infrastructure-error styling.
-7. [ ] Show timestamps and request correlation IDs.
-8. [ ] Show safe Cleanverse result codes.
-9. [ ] Hide credentials, ciphertext, and sensitive identity data.
-10. [ ] Test the complete eligible sequence.
-11. [ ] Test the complete denied sequence.
-
-## 12. Transaction Evidence and Reports
-
-1. [x] Query the confirmed transaction by hash.
-2. [x] Handle indexer delay with bounded polling.
-3. [x] Request the transaction or Travel Rule report.
-4. [ ] Display the returned filename.
-5. [ ] Display the time-limited download link.
-6. [ ] Explain that the download link expires.
-7. [x] Keep settlement confirmed if report generation is delayed.
-8. [ ] Test indexed, delayed, unsupported, and failed report states.
-
-## 13. Deterministic Demo Mode
-
-Complete this section only if the team approves demo mode.
-
-1. [ ] Create sanitized success fixtures.
-2. [ ] Create sanitized denial fixtures.
-3. [ ] Create sanitized report-pending fixtures.
-4. [ ] Add a backend-only demo-mode flag.
-5. [ ] Display a persistent “Demo Data” label when enabled.
-6. [ ] Prevent fixture responses from being presented as live API responses.
-7. [ ] Test that production configuration disables demo mode.
-
-## 14. Quality Verification
-
-The foundation currently passes type-check, lint, unit/contract tests, and
-build. Keep the final gates below unchecked until the complete MVP is tested.
-
-1. [ ] Run formatting checks.
-2. [ ] Run lint checks.
-3. [ ] Run type checks.
-4. [ ] Run unit tests.
-5. [ ] Run Cleanverse client contract tests.
-6. [ ] Run frontend component tests.
-7. [ ] Run eligible-transfer end-to-end tests.
-8. [ ] Run denied-transfer end-to-end tests.
-9. [ ] Scan the repository for secrets.
-10. [ ] Test with the real Cleanverse sandbox.
-11. [ ] Test the real Monad transaction.
-12. [ ] Review all UI and pitch claims against v5.6.
-
-## 15. Deployment
-
-Complete this section after implementation and verification.
-
-1. [ ] Prepare the VPS runtime.
-2. [ ] Configure backend environment variables on the VPS.
-3. [ ] Configure HTTPS and the API domain.
-4. [ ] Deploy the API.
-5. [ ] Verify `GET /health`.
-6. [ ] Configure restricted production CORS.
-7. [ ] Configure the Vercel project.
-8. [ ] Add public frontend environment variables.
-9. [ ] Deploy the frontend.
-10. [ ] Run the live eligible-transfer smoke test.
-11. [ ] Run the live denied-transfer smoke test.
-12. [ ] Verify explorer and report links.
-
-## 16. Submission
-
-1. [ ] Confirm the repository is public.
-2. [ ] Confirm implementation commits fall within the required UTC window.
-3. [ ] Write the one-page summary.
-4. [ ] List CVI/A-Pass and CVA/A-Token integration points.
-5. [ ] List Monad as the deployed chain.
-6. [ ] Record the successful demo.
-7. [ ] Record the denied demo.
-8. [ ] Show the compliance terminal and report.
-9. [ ] Publish the demo video.
-10. [ ] Add the live URL and contract addresses to the README.
-11. [ ] Perform a final secret scan.
-12. [ ] Send the submission before August 9, 23:59 UTC.
+1. [ ] Deploy the API with backend-only Cleanverse, policy, and operator values.
+2. [ ] Restrict production CORS to the deployed frontend.
+3. [ ] Deploy the frontend with public Monad and API values only.
+4. [ ] Verify `/health`, `/ready`, preflight, and evidence behavior.
+5. [ ] Run live approved and denied smoke tests.
+6. [ ] Add the public TRWA address and explorer links to the README.
+7. [ ] Record the successful and denied demo journeys.
+8. [ ] Prepare the one-page summary and demo video.
+9. [ ] Perform the final secret scan.
+10. [ ] Submit before the hackathon deadline.

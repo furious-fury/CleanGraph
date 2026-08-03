@@ -55,9 +55,8 @@ function configuredApp(
 ) {
   return createApp({
     preflightService: null,
-    assetLifecycleService: null,
     evidenceService: service,
-    assetOperatorToken: token,
+    operatorToken: token,
     logEvidenceFailure: vi.fn(),
     ...overrides,
   });
@@ -78,6 +77,23 @@ function makeRequest(app = configuredApp(), input: unknown = evidenceInput) {
 }
 
 describe("protected transaction evidence route", () => {
+  it("uses OPERATOR_TOKEN from the backend environment", async () => {
+    const app = createApp({
+      environment: {
+        NODE_ENV: "test",
+        PORT: 3000,
+        API_CORS_ORIGIN: "http://localhost:5173",
+        CLEANVERSE_TIMEOUT_MS: 10_000,
+        OPERATOR_TOKEN: token,
+      },
+      preflightService: null,
+      evidenceService: createService(),
+      logEvidenceFailure: vi.fn(),
+    });
+
+    expect((await makeRequest(app)).status).toBe(200);
+  });
+
   it.each([
     undefined,
     "Bearer wrong-token",
@@ -104,7 +120,6 @@ describe("protected transaction evidence route", () => {
   it("returns 503 when operator authentication is not configured", async () => {
     const response = await createApp({
       preflightService: null,
-      assetLifecycleService: null,
       evidenceService: createService(),
       logEvidenceFailure: vi.fn(),
     }).request("/api/v1/transactions/evidence", {

@@ -1,27 +1,26 @@
 # CleanGraph
 
-CleanGraph is an API-driven compliance orchestration layer powered by
-Cleanverse. It combines Cleanverse Verified Identity (CVI), Cleanverse
-Verified Assets (CVA), and the Cleanverse Compliance Protocol (CCP) before
-allowing a transaction to settle.
+CleanGraph is a hackathon application that checks Cleanverse A-Pass identity
+data before asking a wallet to transfer a self-deployed Monad ERC-20.
 
 ## Current status
 
 The frontend is a Vite/React application using shadcn/ui, and the backend is a
 Hono API running on Node.js. The repository now contains a fixed-supply
-self-deployed `TRWA` ERC-20 and viem helpers for Monad. The backend preflight
-still uses the earlier Cleanverse A-Token flow until the next backend PR
-replaces it with local policy evaluation over A-Pass records.
+self-deployed `TRWA` ERC-20 and viem helpers for Monad. Backend preflight
+queries sender and recipient A-Passes and evaluates CleanGraph's configured
+group, subgroup, country, status, and expiration policy.
 
 The Node-only Cleanverse client supports secure transport, A-Pass generation,
 A-Pass and A-Token compliance reads, encrypted A-Token launch, application
 status reads, bounded status polling, transaction-index queries, and
-time-limited report downloads. Protected Hono routes now expose A-Token launch,
-one-shot application-status reads, and bounded transaction-evidence reads. No
-live A-Pass or A-Token records have been created by the repository.
+time-limited report downloads. A-Token client methods remain optional adapter
+functionality outside the primary demo. Hono exposes preflight and protected
+bounded transaction-evidence reads; it does not expose A-Token launch or status
+routes. No live A-Pass records have been created by the repository.
 
 `TRWA` is a CleanGraph hackathon token, not an officially issued or registered
-Cleanverse A-Token. CleanGraph's planned Cleanverse gate is application-level;
+Cleanverse A-Token. CleanGraph's Cleanverse gate is application-level;
 direct ERC-20 calls are unrestricted and can bypass the backend preflight.
 
 The frontend is currently a static visual shell. Contract deployment, wallet
@@ -51,14 +50,19 @@ CLEANVERSE_API_ID=your-api-id
 CLEANVERSE_API_KEY=your-base64-aes-key
 CLEANVERSE_BASE_URL=https://uatapi.cleanverse.com/api/cooperate
 CLEANVERSE_TIMEOUT_MS=10000
-ASSET_OPERATOR_TOKEN=replace-with-at-least-32-random-characters
+OPERATOR_TOKEN=replace-with-at-least-32-random-characters
+TRWA_TOKEN_ADDRESS=0x...
+TRWA_ALLOWED_GROUP=Institutional Investor
+TRWA_ALLOWED_SUBGROUP=Accredited Investor
+TRWA_ALLOWED_COUNTRIES=US,GB,DE,SG
 ```
 
 `CLEANVERSE_BASE_URL` and `CLEANVERSE_TIMEOUT_MS` are optional. The base URL
 defaults to the Cleanverse sandbox and the timeout defaults to 10 seconds.
 `CLEANVERSE_API_BASE_URL` remains accepted as a backwards-compatible base URL
-name. Cleanverse credentials and the asset operator token must exist only in
-the backend environment.
+name. Configure all four `TRWA_*` policy variables together; partial or
+malformed policy configuration is rejected. `OPERATOR_TOKEN` protects evidence
+requests and must remain only in the backend environment.
 
 Useful checks:
 
@@ -76,8 +80,7 @@ The critical path is:
 1. Review and merge the self-deployed TRWA contract package.
 2. Deploy and verify TRWA on Monad testnet, then record only its public address,
    deployment transaction, chain ID, and explorer links.
-3. Refactor backend preflight to query both A-Passes and apply CleanGraph's
-   configured local TRWA policy.
+3. Configure the verified token address and local policy in the API.
 4. Provision the two demo A-Passes.
 5. Connect the frontend to preflight, render ordered compliance checks, and
    add the selected Monad wallet provider.
@@ -93,21 +96,11 @@ acceptance tasks.
 The API currently exposes:
 
 - `GET /health` for liveness
-- `GET /ready` for validated Cleanverse client readiness
-- `POST /api/v1/compliance/preflight` for ordered sender, recipient, and
-  A-Token rule checks
-- `POST /api/v1/assets/launch` for an authenticated standard A-Token launch
-- `GET /api/v1/assets/applications/:applicationRequestId` for an authenticated
-  application snapshot
+- `GET /ready` for configured Cleanverse and local TRWA preflight readiness
+- `POST /api/v1/compliance/preflight` for ordered sender, recipient, and local
+  TRWA policy checks over Cleanverse A-Pass data
 - `POST /api/v1/transactions/evidence` for authenticated indexed transaction
   evidence and report availability
-
-The two asset routes require `Authorization: Bearer <ASSET_OPERATOR_TOKEN>`.
-The launch route allows 5 authenticated requests per 60-second process window;
-the status route allows 120. A limit response is HTTP `429` and includes both
-`Retry-After` and `error.retryAfterSeconds`. Status reads are snapshots: the
-caller decides when to request the next state, and the API does not start a
-background poller.
 
 The evidence route accepts a confirmed Monad transaction hash and wallet
 address. It makes up to three index reads one second apart and returns HTTP
@@ -116,7 +109,12 @@ only for indexed transactions. A known report failure returns
 `report.status: "UNAVAILABLE"` without changing the indexed settlement state.
 The route allows 20 authenticated requests per 60-second process window and
 sets `Cache-Control: no-store` because available report URLs are time-limited
-and may contain bearer-like tokens. Never log or persist those URLs.
+and may contain bearer-like tokens. It requires `Authorization: Bearer
+<OPERATOR_TOKEN>`. Never log or persist report URLs.
+
+For the unregistered self-deployed TRWA token, Cleanverse transaction indexing
+and report generation are best-effort. An unavailable report does not invalidate
+a confirmed Monad transfer.
 
 Preflight returns HTTP `200` for completed approved or denied policy
 decisions. Invalid requests return `422`; missing server configuration returns

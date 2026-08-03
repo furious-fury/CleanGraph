@@ -18,7 +18,7 @@ const validIntent = {
   chain: "monad",
   sender: "0x1111111111111111111111111111111111111111",
   recipient: "0x2222222222222222222222222222222222222222",
-  atokenAddress: "0x3333333333333333333333333333333333333333",
+  tokenAddress: "0x3333333333333333333333333333333333333333",
   amount: "10.5",
 };
 const requestId = "123e4567-e89b-42d3-a456-426614174000";
@@ -102,7 +102,7 @@ describe("CleanGraph API", () => {
     expect(body).toMatchObject({
       status: "degraded",
       checks: {
-        cleanverseCredentials: false,
+        preflightService: false,
       },
     });
   });
@@ -123,7 +123,7 @@ describe("CleanGraph API", () => {
     expect(body).toMatchObject({
       status: "ready",
       checks: {
-        cleanverseCredentials: true,
+        preflightService: true,
       },
     });
   });
@@ -165,12 +165,30 @@ describe("CleanGraph API", () => {
         ...baseEnvironment,
         CLEANVERSE_API_ID: "test-api-id",
         CLEANVERSE_API_KEY: Buffer.alloc(32, 7).toString("base64"),
+        TRWA_TOKEN_ADDRESS: validIntent.tokenAddress,
+        TRWA_ALLOWED_GROUP: "Institutional Investor",
+        TRWA_ALLOWED_SUBGROUP: "Accredited Investor",
+        TRWA_ALLOWED_COUNTRIES: ["US", "GB", "DE", "SG"],
       },
       logFailure: vi.fn(),
     });
     const response = await testApp.request("/ready");
 
     expect(response.status).toBe(200);
+  });
+
+  it("keeps preflight unavailable when credentials exist without TRWA policy", async () => {
+    const testApp = createApp({
+      environment: {
+        ...baseEnvironment,
+        CLEANVERSE_API_ID: "test-api-id",
+        CLEANVERSE_API_KEY: Buffer.alloc(32, 7).toString("base64"),
+      },
+      logFailure: vi.fn(),
+    });
+
+    expect((await testApp.request("/ready")).status).toBe(503);
+    expect((await requestPreflight(testApp)).status).toBe(503);
   });
 
   it("rejects invalid transaction intents", async () => {
@@ -235,6 +253,25 @@ describe("CleanGraph API", () => {
     expect(JSON.stringify(body)).not.toContain(sensitiveMarker);
   });
 
+  it("rejects the obsolete atokenAddress field", async () => {
+    const { tokenAddress, ...withoutTokenAddress } = validIntent;
+    const response = await requestPreflight(app, {
+      ...withoutTokenAddress,
+      atokenAddress: tokenAddress,
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  it.each([
+    ["/api/v1/assets/launch", "POST"],
+    ["/api/v1/assets/applications/IA123", "GET"],
+  ])("returns 404 for removed asset lifecycle route %s", async (path, method) => {
+    const response = await app.request(path, { method });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: { code: "NOT_FOUND" } });
+  });
+
   it("returns a completed approved decision from the preflight service", async () => {
     const { service, evaluate } = createService({
       kind: "decision",
@@ -245,27 +282,27 @@ describe("CleanGraph API", () => {
         checks: [
           {
             id: "sender-eligibility",
-            source: "cleanverse",
+            source: "cleangraph",
             status: "approved",
-            code: "ELIGIBLE",
-            message: "Sender has an eligible A-Pass for this A-Token.",
+            code: "APASS_POLICY_MATCH",
+            message: "Sender A-Pass satisfies the local asset policy.",
             checkedAt,
           },
           {
             id: "recipient-eligibility",
-            source: "cleanverse",
+            source: "cleangraph",
             status: "approved",
-            code: "ELIGIBLE",
+            code: "APASS_POLICY_MATCH",
             message:
-              "Recipient has an eligible A-Pass for this A-Token.",
+              "Recipient A-Pass satisfies the local asset policy.",
             checkedAt,
           },
           {
-            id: "asset-rules",
-            source: "cleanverse",
+            id: "asset-policy",
+            source: "cleangraph",
             status: "approved",
-            code: "ATOKEN_RULES_LOADED",
-            message: "A-Token compliance rules loaded successfully.",
+            code: "LOCAL_ASSET_POLICY_PASSED",
+            message: "CleanGraph's local TRWA policy passed for both wallets.",
             checkedAt,
           },
         ],
@@ -290,23 +327,23 @@ describe("CleanGraph API", () => {
       decision: {
         requestId,
         approved: false,
-        decisionCode: "RECIPIENT_NOT_ELIGIBLE",
+        decisionCode: "RECIPIENT_POLICY_MISMATCH",
         checks: [
           {
             id: "sender-eligibility",
-            source: "cleanverse",
+            source: "cleangraph",
             status: "approved",
-            code: "ELIGIBLE",
-            message: "Sender has an eligible A-Pass for this A-Token.",
+            code: "APASS_POLICY_MATCH",
+            message: "Sender A-Pass satisfies the local asset policy.",
             checkedAt,
           },
           {
             id: "recipient-eligibility",
-            source: "cleanverse",
+            source: "cleangraph",
             status: "denied",
-            code: "APASS_NOT_ELIGIBLE",
+            code: "APASS_POLICY_MISMATCH",
             message:
-              "Recipient is not eligible to receive this A-Token.",
+              "Recipient A-Pass does not satisfy the local asset policy.",
             checkedAt,
           },
         ],
@@ -320,7 +357,7 @@ describe("CleanGraph API", () => {
     expect(body).toMatchObject({
       requestId,
       approved: false,
-      decisionCode: "RECIPIENT_NOT_ELIGIBLE",
+      decisionCode: "RECIPIENT_POLICY_MISMATCH",
     });
   });
 
@@ -330,7 +367,7 @@ describe("CleanGraph API", () => {
       decision: {
         requestId: "223e4567-e89b-42d3-a456-426614174000",
         approved: false,
-        decisionCode: "SENDER_APASS_MISSING",
+        decisionCode: "SENDER_APASS_INACTIVE",
         checks: [],
       },
     });
@@ -382,10 +419,10 @@ describe("CleanGraph API", () => {
         checks: [
           {
             id: "sender-eligibility",
-            source: "cleanverse",
+            source: "cleangraph",
             status: "approved",
-            code: "ELIGIBLE",
-            message: "Sender has an eligible A-Pass for this A-Token.",
+            code: "APASS_POLICY_MATCH",
+            message: "Sender A-Pass satisfies the local asset policy.",
             checkedAt,
           },
         ],

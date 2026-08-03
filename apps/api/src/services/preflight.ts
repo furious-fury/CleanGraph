@@ -7,7 +7,7 @@ import {
   CleanverseTimeoutError,
   type CleanverseClient,
   type CleanverseRequestOptions,
-  type VerifyAPassForTokenResult,
+  type QueryAPassResult,
 } from "@cleangraph/cleanverse-client";
 import type {
   ComplianceCheck,
@@ -17,39 +17,21 @@ import type {
   TransactionIntent,
 } from "@cleangraph/shared";
 
-export type CleanverseComplianceReader = Pick<
-  CleanverseClient,
-  "queryATokenRules" | "verifyAPassForToken"
->;
+import type { TrwaPolicy } from "../config/env.js";
+
+export type CleanverseComplianceReader = Pick<CleanverseClient, "queryAPass">;
 
 export type PreflightEvaluation =
-  | {
-      kind: "decision";
-      decision: PreflightDecision;
-    }
-  | {
-      kind: "failure";
-      error: PreflightError;
-      checks: ComplianceCheck[];
-    };
+  | { kind: "decision"; decision: PreflightDecision }
+  | { kind: "failure"; error: PreflightError; checks: ComplianceCheck[] };
 
 export type PreflightService = {
-  evaluate(
-    intent: TransactionIntent,
-    requestId: string,
-  ): Promise<PreflightEvaluation>;
+  evaluate(intent: TransactionIntent, requestId: string): Promise<PreflightEvaluation>;
 };
 
-type PreflightServiceOptions = {
-  clock?: () => Date;
-};
-
+type PreflightServiceOptions = { clock?: () => Date };
 type VerificationSubject = "sender" | "recipient";
-
-type VerificationDenial = {
-  decisionCode: DeniedDecisionCode;
-  check: ComplianceCheck;
-};
+type PolicyDenial = { decisionCode: DeniedDecisionCode; check: ComplianceCheck };
 
 const publicFailureByKind = {
   notConfigured: {
@@ -72,6 +54,7 @@ const publicFailureByKind = {
 
 export function createPreflightService(
   reader: CleanverseComplianceReader,
+  policy: TrwaPolicy,
   options: PreflightServiceOptions = {},
 ): PreflightService {
   const clock = options.clock ?? (() => new Date());
@@ -79,79 +62,58 @@ export function createPreflightService(
   return {
     async evaluate(intent, requestId) {
       const checks: ComplianceCheck[] = [];
+
+      if (intent.tokenAddress.toLowerCase() !== policy.tokenAddress.toLowerCase()) {
+        return {
+          kind: "decision",
+          decision: {
+            requestId,
+            approved: false,
+            decisionCode: "TOKEN_NOT_SUPPORTED",
+            checks: [
+              {
+                id: "asset-policy",
+                source: "cleangraph",
+                status: "denied",
+                code: "TOKEN_NOT_SUPPORTED",
+                message: "The selected token is not supported by this application.",
+                checkedAt: timestamp(clock()),
+              },
+            ],
+          },
+        };
+      }
+
       const requestOptions: CleanverseRequestOptions = { requestId };
 
       try {
-        const senderResult = await reader.verifyAPassForToken(
-          {
-            chain: intent.chain,
-            atokenAddress: intent.atokenAddress,
-            address: intent.sender,
-          },
+        const sender = await reader.queryAPass(
+          { chain: intent.chain, address: intent.sender },
           requestOptions,
         );
-        const senderDenial = createVerificationDenial(
-          "sender",
-          senderResult.data,
-          clock,
-        );
-
-        if (senderDenial) {
-          return {
-            kind: "decision",
-            decision: {
-              requestId,
-              approved: false,
-              decisionCode: senderDenial.decisionCode,
-              checks: [...checks, senderDenial.check],
-            },
-          };
+        const senderCheck = evaluateAPass("sender", sender.data, policy, clock());
+        if (senderCheck.denial) {
+          return deniedDecision(requestId, checks, senderCheck.denial);
         }
+        checks.push(senderCheck.approved);
 
-        checks.push(createApprovedVerificationCheck("sender", clock));
-
-        const recipientResult = await reader.verifyAPassForToken(
-          {
-            chain: intent.chain,
-            atokenAddress: intent.atokenAddress,
-            address: intent.recipient,
-          },
+        const recipient = await reader.queryAPass(
+          { chain: intent.chain, address: intent.recipient },
           requestOptions,
         );
-        const recipientDenial = createVerificationDenial(
-          "recipient",
-          recipientResult.data,
-          clock,
-        );
-
-        if (recipientDenial) {
-          return {
-            kind: "decision",
-            decision: {
-              requestId,
-              approved: false,
-              decisionCode: recipientDenial.decisionCode,
-              checks: [...checks, recipientDenial.check],
-            },
-          };
+        const recipientCheck = evaluateAPass("recipient", recipient.data, policy, clock());
+        if (recipientCheck.denial) {
+          return deniedDecision(requestId, checks, recipientCheck.denial);
         }
+        checks.push(recipientCheck.approved);
 
-        checks.push(createApprovedVerificationCheck("recipient", clock));
-
-        await reader.queryATokenRules(
-          {
-            chain: intent.chain,
-            atokenAddress: intent.atokenAddress,
-          },
-          requestOptions,
-        );
         checks.push({
-          id: "asset-rules",
-          source: "cleanverse",
+          id: "asset-policy",
+          source: "cleangraph",
           status: "approved",
-          code: "ATOKEN_RULES_LOADED",
-          message: "A-Token compliance rules loaded successfully.",
-          checkedAt: timestamp(clock),
+          code: "LOCAL_ASSET_POLICY_PASSED",
+          message: "CleanGraph's local TRWA policy passed for both wallets.",
+          checkedAt: timestamp(clock()),
         });
 
         return {
@@ -164,109 +126,108 @@ export function createPreflightService(
           },
         };
       } catch (error) {
-        return {
-          kind: "failure",
-          error: mapFailure(error),
-          checks,
-        };
+        return { kind: "failure", error: mapFailure(error), checks };
       }
     },
   };
 }
 
-function createApprovedVerificationCheck(
+function evaluateAPass(
   subject: VerificationSubject,
-  clock: () => Date,
-): ComplianceCheck {
+  result: QueryAPassResult,
+  policy: TrwaPolicy,
+  checkedAt: Date,
+): { approved: ComplianceCheck; denial?: never } | { approved?: never; denial: PolicyDenial } {
+  const id = subject === "sender" ? "sender-eligibility" : "recipient-eligibility";
+  const subjectLabel = subject === "sender" ? "Sender" : "Recipient";
+  const suffix = subject === "sender" ? "SENDER" : "RECIPIENT";
+
+  if (result.status !== "ACTIVE") {
+    return {
+      denial: {
+        decisionCode: `${suffix}_APASS_INACTIVE`,
+        check: deniedCheck(id, "APASS_INACTIVE", `${subjectLabel} A-Pass is not active.`, checkedAt),
+      },
+    };
+  }
+
+  if (result.expirationTime <= Math.floor(checkedAt.getTime() / 1_000)) {
+    return {
+      denial: {
+        decisionCode: `${suffix}_APASS_EXPIRED`,
+        check: deniedCheck(id, "APASS_EXPIRED", `${subjectLabel} A-Pass has expired.`, checkedAt),
+      },
+    };
+  }
+
+  const countryMatches = result.countries.some((country) =>
+    policy.allowedCountries.includes(country),
+  );
+  if (
+    result.group !== policy.allowedGroup ||
+    result.subGroup !== policy.allowedSubgroup ||
+    !countryMatches
+  ) {
+    return {
+      denial: {
+        decisionCode: `${suffix}_POLICY_MISMATCH`,
+        check: deniedCheck(
+          id,
+          "APASS_POLICY_MISMATCH",
+          `${subjectLabel} A-Pass does not satisfy the local asset policy.`,
+          checkedAt,
+        ),
+      },
+    };
+  }
+
   return {
-    id:
-      subject === "sender"
-        ? "sender-eligibility"
-        : "recipient-eligibility",
-    source: "cleanverse",
-    status: "approved",
-    code: "ELIGIBLE",
-    message:
-      subject === "sender"
-        ? "Sender has an eligible A-Pass for this A-Token."
-        : "Recipient has an eligible A-Pass for this A-Token.",
-    checkedAt: timestamp(clock),
+    approved: {
+      id,
+      source: "cleangraph",
+      status: "approved",
+      code: "APASS_POLICY_MATCH",
+      message: `${subjectLabel} A-Pass satisfies the local asset policy.`,
+      checkedAt: timestamp(checkedAt),
+    },
   };
 }
 
-function createVerificationDenial(
-  subject: VerificationSubject,
-  result: VerifyAPassForTokenResult,
-  clock: () => Date,
-): VerificationDenial | undefined {
-  const id =
-    subject === "sender"
-      ? "sender-eligibility"
-      : "recipient-eligibility";
+function deniedCheck(
+  id: "sender-eligibility" | "recipient-eligibility",
+  code: string,
+  message: string,
+  checkedAt: Date,
+): ComplianceCheck {
+  return {
+    id,
+    source: "cleangraph",
+    status: "denied",
+    code,
+    message,
+    checkedAt: timestamp(checkedAt),
+  };
+}
 
-  switch (result.outcome) {
-    case "ATOKEN_NOT_FOUND":
-      return {
-        decisionCode: "ATOKEN_NOT_FOUND",
-        check: {
-          id,
-          source: "cleanverse",
-          status: "denied",
-          code: result.outcome,
-          message: "The selected A-Token was not found.",
-          checkedAt: timestamp(clock),
-        },
-      };
-    case "APASS_MISSING":
-      return {
-        decisionCode:
-          subject === "sender"
-            ? "SENDER_APASS_MISSING"
-            : "RECIPIENT_APASS_MISSING",
-        check: {
-          id,
-          source: "cleanverse",
-          status: "denied",
-          code: result.outcome,
-          message:
-            subject === "sender"
-              ? "Sender does not have an A-Pass."
-              : "Recipient does not have an A-Pass.",
-          checkedAt: timestamp(clock),
-        },
-      };
-    case "APASS_NOT_ELIGIBLE":
-      return {
-        decisionCode:
-          subject === "sender"
-            ? "SENDER_NOT_ELIGIBLE"
-            : "RECIPIENT_NOT_ELIGIBLE",
-        check: {
-          id,
-          source: "cleanverse",
-          status: "denied",
-          code: result.outcome,
-          message:
-            subject === "sender"
-              ? "Sender is not eligible to transfer this A-Token."
-              : "Recipient is not eligible to receive this A-Token.",
-          checkedAt: timestamp(clock),
-        },
-      };
-    case "ELIGIBLE":
-      return undefined;
-  }
+function deniedDecision(
+  requestId: string,
+  checks: ComplianceCheck[],
+  denial: PolicyDenial,
+): PreflightEvaluation {
+  return {
+    kind: "decision",
+    decision: {
+      requestId,
+      approved: false,
+      decisionCode: denial.decisionCode,
+      checks: [...checks, denial.check],
+    },
+  };
 }
 
 function mapFailure(error: unknown): PreflightError {
-  if (error instanceof CleanverseConfigurationError) {
-    return publicFailureByKind.notConfigured;
-  }
-
-  if (error instanceof CleanverseTimeoutError) {
-    return publicFailureByKind.timeout;
-  }
-
+  if (error instanceof CleanverseConfigurationError) return publicFailureByKind.notConfigured;
+  if (error instanceof CleanverseTimeoutError) return publicFailureByKind.timeout;
   if (
     error instanceof CleanverseNetworkError ||
     error instanceof CleanverseHttpError ||
@@ -275,10 +236,9 @@ function mapFailure(error: unknown): PreflightError {
   ) {
     return publicFailureByKind.unavailable;
   }
-
   return publicFailureByKind.internal;
 }
 
-function timestamp(clock: () => Date): string {
-  return clock().toISOString();
+function timestamp(date: Date): string {
+  return date.toISOString();
 }

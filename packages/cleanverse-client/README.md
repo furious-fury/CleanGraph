@@ -57,7 +57,8 @@ with Zod.
 
 ## Compliance reads
 
-The client exposes the three plain-JSON reads used by CleanGraph preflight:
+The self-deployed TRWA preflight uses `queryAPass` for each wallet and applies
+CleanGraph's backend policy locally:
 
 ```ts
 const apass = await client.queryAPass(
@@ -67,7 +68,13 @@ const apass = await client.queryAPass(
   },
   { requestId: incomingRequestId },
 );
+```
 
+`queryATokenRules` and `verifyAPassForToken` remain tested optional adapter
+methods for officially registered A-Tokens. They are not used by the primary
+TRWA demo:
+
+```ts
 const rules = await client.queryATokenRules({
   chain: "monad",
   atokenAddress: "0x2222222222222222222222222222222222222222",
@@ -151,7 +158,11 @@ The method only exposes normalized record, tier, wallet, transaction-hash, and
 optional deposit-wallet data from successful responses. Live A-Pass creation
 is a separate manual sandbox operation and is not performed by tests.
 
-## A-Token issuance
+## Optional A-Token issuance adapter
+
+The methods in this section are retained for other integrations. CleanGraph's
+self-deployed TRWA demo does not call them, expose them through Hono, or claim
+that Cleanverse issues or enforces TRWA.
 
 `launchAToken` submits the v5.6 standard A-Token launch contract through the
 encrypted transport:
@@ -160,8 +171,8 @@ encrypted transport:
 const launch = await client.launchAToken(
   {
     chain: "monad",
-    tokenName: "Tokenized Real-World Asset",
-    tokenSymbol: "TRWA",
+    tokenName: "Example Registered Asset",
+    tokenSymbol: "ERA",
     decimals: 18,
     adminAddress: "0x1111111111111111111111111111111111111111",
     rule: {
@@ -230,10 +241,10 @@ response error. Reaching `maxAttempts` throws the retryable
 `CleanversePollingExhaustedError`; it never converts a pending application into
 success.
 
-Live launch is intentionally separate from tests. Before submitting, confirm
-that the API ID has Issue Member permission, obtain the real two-character
-group/subgroup codes, choose the tier thresholds, host the icon publicly, and
-control the Monad admin wallet that will later grant `MINTER_ROLE`.
+Any live launch is intentionally separate from tests and the TRWA demo. A
+caller using this optional adapter must independently confirm permissions,
+codes, thresholds, hosted metadata, contract artifacts, and administrator
+instructions.
 
 ## Transaction evidence
 
@@ -262,6 +273,10 @@ An empty successful result is valid and may mean that Cleanverse has not
 indexed the confirmed Monad transaction yet. This method does not poll and
 does not convert an empty page into a settlement failure. The Hono
 evidence service owns bounded index polling.
+
+Indexing for CleanGraph's unregistered TRWA is best-effort and may be
+unsupported. Empty or unavailable evidence does not invalidate Monad
+settlement.
 
 Use `downloadTravelRuleReport` for either a supported A-Token transfer report
 or a Travel Rule withdrawal report. Cleanverse determines the report from the
