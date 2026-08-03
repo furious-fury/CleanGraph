@@ -38,7 +38,7 @@ export function createFixedWindowRateLimit(options: FixedWindowRateLimitOptions)
         error: {
           code: "RATE_LIMITED",
           message:
-            options.message ?? "Too many asset lifecycle requests.",
+            options.message ?? "Too many operator requests.",
           retryAfterSeconds,
         },
       };

@@ -33,7 +33,7 @@ export function createOperatorAuth(
           requestId,
           "SERVICE_NOT_CONFIGURED",
           options.notConfiguredMessage ??
-            "Asset operator authentication is not configured.",
+            "Operator authentication is not configured.",
         ),
         503,
       );

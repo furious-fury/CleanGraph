@@ -32,7 +32,7 @@ const decision: PreflightDecision = preflightDecisionSchema.parse(payload);
   "chain": "monad",
   "sender": "0x1111111111111111111111111111111111111111",
   "recipient": "0x2222222222222222222222222222222222222222",
-  "atokenAddress": "0x3333333333333333333333333333333333333333",
+  "tokenAddress": "0x3333333333333333333333333333333333333333",
   "amount": "100.5"
 }
 ```
@@ -49,14 +49,14 @@ policy evaluations:
 {
   "requestId": "123e4567-e89b-42d3-a456-426614174000",
   "approved": false,
-  "decisionCode": "RECIPIENT_NOT_ELIGIBLE",
+  "decisionCode": "RECIPIENT_POLICY_MISMATCH",
   "checks": [
     {
       "id": "recipient-eligibility",
-      "source": "cleanverse",
+      "source": "cleangraph",
       "status": "denied",
-      "code": "APASS_NOT_ELIGIBLE",
-      "message": "Recipient is not eligible to receive this A-Token.",
+      "code": "APASS_POLICY_MISMATCH",
+      "message": "Recipient A-Pass does not satisfy the local asset policy.",
       "checkedAt": "2026-07-30T12:00:00.000Z"
     }
   ]
@@ -76,43 +76,9 @@ The preflight endpoint uses these HTTP statuses:
 - `504`: Cleanverse request timed out
 - `500`: unexpected internal failure
 
-## Asset lifecycle contracts
-
-The package exports `assetLaunchRequestSchema`, `assetLaunchResponseSchema`,
-`assetApplicationResponseSchema`, and `assetErrorResponseSchema` for the
-protected operator flow. It also owns the v5.6 Cleanverse country-code schema,
-which is shared by the browser contract and Node-only Cleanverse client.
-
-```ts
-import {
-  assetApplicationResponseSchema,
-  assetLaunchRequestSchema,
-  type AssetLaunchRequest,
-} from "@cleangraph/shared";
-
-const launch: AssetLaunchRequest = assetLaunchRequestSchema.parse({
-  chain: "monad",
-  tokenName: "Tokenized Real-World Asset",
-  tokenSymbol: "TRWA",
-  decimals: 18,
-  adminAddress: "0x1111111111111111111111111111111111111111",
-  rule: {
-    allowedGroup: "II",
-    allowedSubGroup: "AI",
-    minTier: 1,
-    minSubTier: 0,
-    countries: ["NG"],
-  },
-  icon: "https://assets.example.com/trwa.svg",
-});
-
-const snapshot = assetApplicationResponseSchema.parse(await response.json());
-```
-
-Only `IA...` standard launch identifiers are public. `ISSUED` is the only
-successful state and requires an A-Token address, transaction hash, and issue
-timestamp. `REJECTED` and `ISSUE_FAILED` remain successful HTTP `200` status
-reads with normalized failure evidence.
+The request contract is strict. `atokenAddress` is obsolete and rejected; use
+`tokenAddress`. Public checks expose only CleanGraph's normalized local policy
+decision and never raw A-Pass records, CV record identifiers, or KYC hashes.
 
 ## Transaction evidence contracts
 
