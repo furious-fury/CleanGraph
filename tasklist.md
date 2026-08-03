@@ -3,20 +3,19 @@
 **Status:** Active v0.3
 **Rule:** Complete sections in order unless a task is explicitly marked as
 parallel-safe.
-**Last reconciled with code:** July 31, 2026
+**Last reconciled with code:** August 3, 2026
 
 ## Remaining MVP Critical Path
 
 This summary is the build order. The detailed acceptance tasks remain in the
 numbered sections below.
 
-1. [ ] Resolve Issue Member access, Cleanverse group codes, Monad network
-   values, the A-Token ABI, and role/mint instructions.
+1. [ ] Resolve Cleanverse group codes and Monad network values.
 2. [x] Add protected asset-lifecycle and transaction-evidence API routes.
-3. [ ] Initialize the contracts package and implement Monad balance, transfer,
+3. [x] Initialize the contracts package and implement Monad balance, transfer,
    receipt, and explorer helpers.
-4. [ ] Provision Wallet A, Wallet B, and the issued/minted `TRWA` sandbox
-   state.
+4. [ ] Review, deploy, and verify the fixed-supply `TRWA` contract on Monad
+   testnet, then provision Wallet A and Wallet B A-Passes.
 5. [ ] Connect the frontend to shared contracts and the preflight API, then
    render the ordered compliance terminal.
 6. [ ] Connect a Monad wallet and complete the approved transfer flow while
@@ -48,8 +47,8 @@ numbered sections below.
 11. [ ] Confirm the sandbox IDs for the `Institutional Investor` and
     `Accredited Investor` mapping.
 12. [ ] Confirm the Cleanverse API ID has Issue Member permissions.
-13. [ ] Obtain the Cleanverse Monad A-Token ABI.
-14. [ ] Obtain `MINTER_ROLE` grant and mint instructions.
+13. [x] Replace the official A-Token path with a self-deployed demo ERC-20.
+14. [x] Remove mint-role requirements by fixing supply in the constructor.
 15. [ ] Confirm the Monad sandbox chain ID, RPC URL, and explorer URL.
 
 ## 1. Workspace Foundation
@@ -61,10 +60,10 @@ numbered sections below.
 5. [x] Select and configure Hono.
 6. [x] Initialize `packages/shared`.
 7. [x] Initialize `packages/cleanverse-client`.
-8. [ ] Initialize `packages/contracts`.
+8. [x] Initialize `packages/contracts`.
 9. [x] Add TypeScript workspace aliases for the frontend.
 10. [x] Configure Oxlint for the frontend.
-11. [ ] Configure formatting.
+11. [x] Configure Foundry formatting for contracts.
 12. [x] Configure the test runner.
 13. [x] Add root type-check, lint, and build scripts.
 14. [ ] Add secret-scanning checks.
@@ -167,15 +166,15 @@ numbered sections below.
 
 ## 8. Monad Contract Integration
 
-1. [ ] Add the Monad network configuration.
-2. [ ] Add the A-Token ABI.
-3. [ ] Add token metadata and address configuration.
-4. [ ] Implement A-Token balance reads.
-5. [ ] Implement decimal-safe amount parsing.
-6. [ ] Implement A-Token transfer simulation if supported.
+1. [x] Add validated caller-supplied Monad network construction.
+2. [x] Add the minimal verified TRWA ABI.
+3. [x] Add fixed TRWA metadata and supply constants.
+4. [x] Implement TRWA balance and metadata reads.
+5. [x] Implement decimal-safe amount parsing and formatting.
+6. [x] Implement TRWA transfer simulation with an external wallet account.
 7. [ ] Implement the wallet-signed transfer.
-8. [ ] Wait for transaction confirmation.
-9. [ ] Link confirmed transactions to the Monad explorer.
+8. [x] Implement receipt confirmation with explicit revert handling.
+9. [x] Implement Monad explorer address and transaction links.
 10. [ ] Test an eligible transfer.
 11. [ ] Confirm an ineligible transfer is blocked before signing.
 

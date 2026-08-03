@@ -1,0 +1,27 @@
+{
+  "name": "@cleangraph/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "forge build && tsc -p tsconfig.json",
+    "lint": "forge fmt --check && oxlint src tests",
+    "test": "forge test && NODE_ENV=test TMPDIR=/tmp vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.4.0",
+    "viem": "2.37.9"
+  },
+  "devDependencies": {
+    "oxlint": "^1.76.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

@@ -8,8 +8,10 @@ allowing a transaction to settle.
 ## Current status
 
 The frontend is a Vite/React application using shadcn/ui, and the backend is a
-Hono API running on Node.js. The backend preflight endpoint is connected to
-Cleanverse A-Pass verification and A-Token rule reads.
+Hono API running on Node.js. The repository now contains a fixed-supply
+self-deployed `TRWA` ERC-20 and viem helpers for Monad. The backend preflight
+still uses the earlier Cleanverse A-Token flow until the next backend PR
+replaces it with local policy evaluation over A-Pass records.
 
 The Node-only Cleanverse client supports secure transport, A-Pass generation,
 A-Pass and A-Token compliance reads, encrypted A-Token launch, application
@@ -18,9 +20,13 @@ time-limited report downloads. Protected Hono routes now expose A-Token launch,
 one-shot application-status reads, and bounded transaction-evidence reads. No
 live A-Pass or A-Token records have been created by the repository.
 
-The frontend is currently a static visual shell. Wallet connection, API
-integration, Monad smart-contract settlement, transaction evidence, live demo
-provisioning, and deployment remain.
+`TRWA` is a CleanGraph hackathon token, not an officially issued or registered
+Cleanverse A-Token. CleanGraph's planned Cleanverse gate is application-level;
+direct ERC-20 calls are unrestricted and can bypass the backend preflight.
+
+The frontend is currently a static visual shell. Contract deployment, wallet
+connection, API integration, Monad settlement, transaction evidence UI, live
+demo provisioning, and application deployment remain.
 
 Do not commit API keys, wallet private keys, access codes, or other secrets.
 Copy `.env.example` to a local `.env` file and provide credentials only to the
@@ -67,16 +73,17 @@ pnpm build
 
 The critical path is:
 
-1. Confirm Cleanverse Issue Member access, group/subgroup codes, Monad network
-   details, the A-Token ABI, and role/mint instructions.
-2. Build the contracts package and Monad transfer helpers.
-3. Provision the two demo A-Passes, issue `TRWA`, grant `MINTER_ROLE`, and mint
-   `1,000,000 TRWA`.
-4. Connect the frontend to preflight, render ordered compliance checks, and
+1. Review and merge the self-deployed TRWA contract package.
+2. Deploy and verify TRWA on Monad testnet, then record only its public address,
+   deployment transaction, chain ID, and explorer links.
+3. Refactor backend preflight to query both A-Passes and apply CleanGraph's
+   configured local TRWA policy.
+4. Provision the two demo A-Passes.
+5. Connect the frontend to preflight, render ordered compliance checks, and
    add the selected Monad wallet provider.
-5. Prove an eligible transfer confirms and the Wallet B scenario stops before
+6. Prove an eligible transfer confirms and the Wallet B scenario stops before
    signing.
-6. Complete evidence/report UI states, end-to-end tests, deployment, and
+7. Complete evidence/report UI states, end-to-end tests, deployment, and
    submission.
 
 See [PRD.md](./PRD.md), [Implementation_plan.md](./Implementation_plan.md), and
@@ -129,7 +136,7 @@ apps/
   web/                  User interface and compliance terminal
 packages/
   cleanverse-client/    Cleanverse API adapter
-  contracts/            Placeholder for A-Token ABI and Monad helpers
+  contracts/            Self-deployed TRWA ERC-20 and Monad/viem helpers
   shared/               Shared schemas, types, and utilities
 docs/
   decisions/            Placeholder for architecture decision records
