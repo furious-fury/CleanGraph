@@ -2,7 +2,7 @@
 
 **Status:** Backend and contract foundation implemented; deployment and frontend remain
 
-**Last updated:** August 3, 2026
+**Last updated:** August 7, 2026
 
 ## 1. Architecture
 
@@ -53,7 +53,8 @@ Branch: `feat/monad-trwa-contract`
 
 ## 4. Deployment checkpoint — user controlled
 
-Do this after the contract PR is reviewed and merged:
+The contract PR is merged. Complete this user-controlled checkpoint before
+configuring a live API or integrating wallet settlement:
 
 1. Install Foundry and confirm `forge`, `cast`, and `anvil` versions.
 2. Choose the Monad testnet chain ID, HTTPS RPC, and explorer.
@@ -175,15 +176,13 @@ Remaining live checks are deployment verification, an approved transfer, a
 pre-signature denial, best-effort evidence, frontend end-to-end tests, secret
 scanning, and production smoke tests.
 
-## 10. PR and release sequence
+## 10. Release sequence
 
-1. Merge `feat/monad-trwa-contract`.
-2. Complete the deployment checkpoint and record public outputs.
-3. Rebase or retarget `feat/server-self-deployed-trwa-preflight` onto updated
-   `main`, configure the verified address in deployment settings, and merge.
-4. Implement frontend preflight and wallet settlement.
-5. Implement evidence UI and end-to-end hardening.
-6. Deploy the API and frontend, run smoke tests, and prepare the submission.
+1. Complete the deployment checkpoint and record public outputs.
+2. Configure the verified address in deployment settings.
+3. Implement frontend preflight and wallet settlement.
+4. Implement evidence UI and end-to-end hardening.
+5. Deploy the API and frontend, run smoke tests, and prepare the submission.
 
 ## 11. Main risks
 

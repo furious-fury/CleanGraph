@@ -75,18 +75,17 @@ pnpm build
 
 ## Remaining MVP work
 
-The critical path is:
+The contract and backend preflight foundations are merged. The critical path is:
 
-1. Review and merge the self-deployed TRWA contract package.
-2. Deploy and verify TRWA on Monad testnet, then record only its public address,
+1. Deploy and verify TRWA on Monad testnet, then record only its public address,
    deployment transaction, chain ID, and explorer links.
-3. Configure the verified token address and local policy in the API.
-4. Provision the two demo A-Passes.
-5. Connect the frontend to preflight, render ordered compliance checks, and
+2. Configure the verified token address and local policy in the API.
+3. Provision the two demo A-Passes.
+4. Connect the frontend to preflight, render ordered compliance checks, and
    add the selected Monad wallet provider.
-6. Prove an eligible transfer confirms and the Wallet B scenario stops before
+5. Prove an eligible transfer confirms and the Wallet B scenario stops before
    signing.
-7. Complete evidence/report UI states, end-to-end tests, deployment, and
+6. Complete evidence/report UI states, end-to-end tests, deployment, and
    submission.
 
 See [PRD.md](./PRD.md), [Implementation_plan.md](./Implementation_plan.md), and

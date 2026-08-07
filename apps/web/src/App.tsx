@@ -40,8 +40,8 @@ const complianceSteps = [
     icon: ShieldCheckIcon,
   },
   {
-    label: "A-Token policy",
-    detail: "Tier and country rules will appear here",
+    label: "TRWA policy",
+    detail: "Local group, subgroup, and country checks will appear here",
     icon: GlobeHemisphereWestIcon,
   },
 ]
@@ -87,7 +87,7 @@ function App() {
             Move verified assets between eligible wallets.
           </h1>
           <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted-foreground sm:text-base">
-            CleanGraph checks both counterparties against the A-Token policy
+            CleanGraph checks both counterparties against its local TRWA policy
             before a Monad transaction reaches the wallet.
           </p>
         </div>
@@ -97,7 +97,7 @@ function App() {
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <CardTitle>Transfer A-Token</CardTitle>
+                  <CardTitle>Transfer TRWA</CardTitle>
                   <CardDescription className="mt-1.5">
                     Enter a transaction intent to begin compliance preflight.
                   </CardDescription>
@@ -113,7 +113,7 @@ function App() {
                 <Label htmlFor="asset">Asset</Label>
                 <Select defaultValue="cg-rwa">
                   <SelectTrigger id="asset" className="w-full">
-                    <SelectValue placeholder="Select an A-Token" />
+                    <SelectValue placeholder="Select TRWA" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cg-rwa">
@@ -143,7 +143,7 @@ function App() {
                     className="pr-24"
                   />
                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground">
-                    CG-RWA
+                    TRWA
                   </span>
                 </div>
               </div>

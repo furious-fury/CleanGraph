@@ -2,15 +2,15 @@
 
 **Status:** Active self-deployed TRWA MVP
 
-**Last reconciled with code:** August 3, 2026
+**Last reconciled with code:** August 7, 2026
 
 ## Critical path
 
 1. [x] Implement and test the fixed-supply TRWA contract package.
-2. [ ] Review and merge the contract PR.
+2. [x] Review and merge the contract PR.
 3. [ ] Deploy and verify TRWA on Monad testnet.
 4. [x] Refactor backend preflight to Cleanverse A-Pass reads plus local policy.
-5. [ ] Rebase/merge the backend PR after recording the verified address.
+5. [x] Merge the backend preflight PR.
 6. [ ] Provision Wallet A and Wallet B A-Passes.
 7. [ ] Integrate frontend preflight, wallet signing, and receipt confirmation.
 8. [ ] Run live approved and pre-signature-denied journeys.
@@ -170,7 +170,7 @@ seed, funded environment file, or operator token.
 
 1. [x] Run contract formatting, build, and tests for the contract PR.
 2. [x] Run repository lint, type-check, tests, and build for the contract PR.
-3. [ ] Run all gates for the backend PR after final documentation changes.
+3. [ ] Run all gates after final documentation changes and Foundry installation.
 4. [ ] Add frontend component and end-to-end tests.
 5. [ ] Run approved-transfer end-to-end test.
 6. [ ] Run denied-before-signature end-to-end test.

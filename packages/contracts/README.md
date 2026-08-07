@@ -40,7 +40,7 @@ pnpm --filter @cleangraph/contracts build
 ## Deployment checkpoint
 
 Warning: never commit the deployer key, seed phrase, or a funded environment
-file. Review and merge the contract PR before broadcasting.
+file. The contract PR is merged; complete the checks below before broadcasting.
 
 Set these backend-only shell variables:
 
