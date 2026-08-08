@@ -1,6 +1,5 @@
+import { cleanverseCountryCodeSchema } from "@cleangraph/shared";
 import { z } from "zod";
-
-import { cleanverseCountryCodeSchema } from "./countries.js";
 import { CleanverseConfigurationError } from "./errors.js";
 
 const evmAddressSchema = z

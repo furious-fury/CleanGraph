@@ -23,7 +23,7 @@ export const transactionIntentSchema = z
     chain: z.literal("monad"),
     sender: evmAddressSchema,
     recipient: evmAddressSchema,
-    atokenAddress: evmAddressSchema,
+    tokenAddress: evmAddressSchema,
     amount: tokenAmountSchema,
   })
   .strict();
@@ -31,7 +31,7 @@ export const transactionIntentSchema = z
 export const complianceCheckIdSchema = z.enum([
   "sender-eligibility",
   "recipient-eligibility",
-  "asset-rules",
+  "asset-policy",
 ]);
 
 export const complianceCheckSourceSchema = z.enum([
@@ -55,11 +55,13 @@ export const complianceCheckSchema = z
 export const approvedDecisionCodeSchema = z.literal("TRANSFER_APPROVED");
 
 export const deniedDecisionCodeSchema = z.enum([
-  "ATOKEN_NOT_FOUND",
-  "SENDER_APASS_MISSING",
-  "RECIPIENT_APASS_MISSING",
-  "SENDER_NOT_ELIGIBLE",
-  "RECIPIENT_NOT_ELIGIBLE",
+  "TOKEN_NOT_SUPPORTED",
+  "SENDER_APASS_INACTIVE",
+  "RECIPIENT_APASS_INACTIVE",
+  "SENDER_APASS_EXPIRED",
+  "RECIPIENT_APASS_EXPIRED",
+  "SENDER_POLICY_MISMATCH",
+  "RECIPIENT_POLICY_MISMATCH",
 ]);
 
 export const preflightDecisionCodeSchema = z.union([
@@ -92,7 +94,6 @@ export const preflightDecisionSchema = z.discriminatedUnion("approved", [
 
 export const preflightErrorCodeSchema = z.enum([
   "VALIDATION_ERROR",
-  "PREFLIGHT_NOT_IMPLEMENTED",
   "SERVICE_NOT_CONFIGURED",
   "CLEANVERSE_UNAVAILABLE",
   "CLEANVERSE_TIMEOUT",

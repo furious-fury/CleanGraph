@@ -11,6 +11,7 @@ import {
   getCleanverseBaseUrl,
   getCleanverseTimeoutMs,
   getEnvironment,
+  getTrwaPolicy,
   isCleanverseConfigured,
   type Environment,
 } from "./config/env.js";
@@ -18,11 +19,20 @@ import {
   requestContext,
   type AppVariables,
 } from "./middleware/request-context.js";
+import type { FixedWindowRateLimitOptions } from "./middleware/rate-limit.js";
+import {
+  createEvidenceRoutes,
+  type EvidenceFailureLog,
+} from "./routes/evidence.js";
 import { createHealthRoutes } from "./routes/health.js";
 import {
   createPreflightRoutes,
   type PreflightFailureLog,
 } from "./routes/preflight.js";
+import {
+  createEvidenceService,
+  type EvidenceService,
+} from "./services/evidence.js";
 import {
   createPreflightService,
   type PreflightService,
@@ -31,12 +41,17 @@ import {
 type AppOptions = {
   environment?: Environment;
   preflightService?: PreflightService | null;
+  evidenceService?: EvidenceService | null;
+  operatorToken?: string;
+  evidenceRateLimit?: FixedWindowRateLimitOptions;
   logFailure?: (failure: PreflightFailureLog) => void;
+  logEvidenceFailure?: (failure: EvidenceFailureLog) => void;
 };
 
 export function createApp(options: AppOptions = {}) {
   const environment = options.environment ?? getEnvironment();
-  const runtime = resolvePreflightRuntime(environment, options);
+  const runtime = resolveRuntime(environment, options);
+  const operatorToken = options.operatorToken ?? environment.OPERATOR_TOKEN;
   const app = new Hono<{
     Variables: AppVariables;
   }>();
@@ -52,9 +67,9 @@ export function createApp(options: AppOptions = {}) {
     "/api/*",
     cors({
       origin: environment.API_CORS_ORIGIN,
-      allowHeaders: ["Content-Type", "X-Request-ID"],
+      allowHeaders: ["Authorization", "Content-Type", "X-Request-ID"],
       allowMethods: ["GET", "POST", "OPTIONS"],
-      exposeHeaders: ["X-Request-ID"],
+      exposeHeaders: ["Retry-After", "X-Request-ID"],
       maxAge: 600,
     }),
   );
@@ -63,16 +78,31 @@ export function createApp(options: AppOptions = {}) {
     .route(
       "/",
       createHealthRoutes({
-        cleanverseReady: runtime.service !== undefined,
+        preflightReady: runtime.preflightService !== undefined,
       }),
     )
     .route(
       "/api/v1",
       createPreflightRoutes({
-        ...(runtime.service === undefined
+        ...(runtime.preflightService === undefined
           ? {}
-          : { service: runtime.service }),
+          : { service: runtime.preflightService }),
         onFailure: options.logFailure ?? logPreflightFailure,
+      }),
+    )
+    .route(
+      "/api/v1",
+      createEvidenceRoutes({
+        ...(runtime.evidenceService === undefined
+          ? {}
+          : { service: runtime.evidenceService }),
+        ...(operatorToken === undefined
+          ? {}
+          : { operatorToken }),
+        ...(options.evidenceRateLimit === undefined
+          ? {}
+          : { rateLimit: options.evidenceRateLimit }),
+        onFailure: options.logEvidenceFailure ?? logEvidenceFailure,
       }),
     );
 
@@ -111,37 +141,49 @@ export function createApp(options: AppOptions = {}) {
   return routes;
 }
 
-function resolvePreflightRuntime(
+function resolveRuntime(
   environment: Environment,
   options: AppOptions,
-): { service?: PreflightService } {
-  if ("preflightService" in options) {
-    return options.preflightService
-      ? { service: options.preflightService }
-      : {};
-  }
+): {
+  preflightService?: PreflightService;
+  evidenceService?: EvidenceService;
+} {
+  let client: CleanverseClient | undefined;
 
-  if (!isCleanverseConfigured(environment)) {
-    return {};
-  }
-
-  try {
-    const baseUrl = getCleanverseBaseUrl(environment);
-    const client = new CleanverseClient({
-      apiId: environment.CLEANVERSE_API_ID!,
-      apiKey: environment.CLEANVERSE_API_KEY!,
-      timeoutMs: getCleanverseTimeoutMs(environment),
-      ...(baseUrl === undefined ? {} : { baseUrl }),
-    });
-
-    return { service: createPreflightService(client) };
-  } catch (error) {
-    if (error instanceof CleanverseConfigurationError) {
-      return {};
+  if (isCleanverseConfigured(environment)) {
+    try {
+      const baseUrl = getCleanverseBaseUrl(environment);
+      client = new CleanverseClient({
+        apiId: environment.CLEANVERSE_API_ID!,
+        apiKey: environment.CLEANVERSE_API_KEY!,
+        timeoutMs: getCleanverseTimeoutMs(environment),
+        ...(baseUrl === undefined ? {} : { baseUrl }),
+      });
+    } catch (error) {
+      if (!(error instanceof CleanverseConfigurationError)) throw error;
     }
-
-    throw error;
   }
+
+  const preflightService = "preflightService" in options
+    ? options.preflightService ?? undefined
+    : client === undefined
+      ? undefined
+      : (() => {
+          const policy = getTrwaPolicy(environment);
+          return policy === undefined
+            ? undefined
+            : createPreflightService(client, policy);
+        })();
+  const evidenceService = "evidenceService" in options
+    ? options.evidenceService ?? undefined
+    : client === undefined
+      ? undefined
+      : createEvidenceService(client);
+
+  return {
+    ...(preflightService === undefined ? {} : { preflightService }),
+    ...(evidenceService === undefined ? {} : { evidenceService }),
+  };
 }
 
 function logPreflightFailure(failure: PreflightFailureLog): void {
@@ -152,6 +194,19 @@ function logPreflightFailure(failure: PreflightFailureLog): void {
       code: failure.code,
       requestId: failure.requestId,
       completedChecks: failure.completedChecks,
+    }),
+  );
+}
+
+function logEvidenceFailure(failure: EvidenceFailureLog): void {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      event: failure.event,
+      operation: failure.operation,
+      code: failure.code,
+      requestId: failure.requestId,
+      status: failure.status,
     }),
   );
 }

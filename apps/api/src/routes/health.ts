@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { AppVariables } from "../middleware/request-context.js";
 
 type HealthRouteOptions = {
-  cleanverseReady: boolean;
+  preflightReady: boolean;
 };
 
 export function createHealthRoutes(options: HealthRouteOptions) {
@@ -19,14 +19,14 @@ export function createHealthRoutes(options: HealthRouteOptions) {
     )
     .get("/ready", (context) => {
       const body = {
-        status: options.cleanverseReady ? "ready" : "degraded",
+        status: options.preflightReady ? "ready" : "degraded",
         checks: {
-          cleanverseCredentials: options.cleanverseReady,
+          preflightService: options.preflightReady,
         },
         requestId: context.get("requestId"),
       } as const;
 
-      return options.cleanverseReady
+      return options.preflightReady
         ? context.json(body, 200)
         : context.json(body, 503);
     });

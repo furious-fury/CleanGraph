@@ -39,8 +39,8 @@ const policyChecks = [
   },
   {
     icon: GlobeHemisphereWestIcon,
-    title: "Asset rules",
-    copy: "Read the A-Token country and investor policy before signing.",
+    title: "TRWA policy",
+    copy: "Apply CleanGraph's local group, subgroup, and country policy before signing.",
   },
 ]
 
@@ -89,7 +89,7 @@ function App() {
               Clear transfers before signing.
             </h1>
             <p className="mt-7 max-w-lg text-lg leading-8 text-[#a9b8ad]">
-              Verify both wallets against A-Token policy before a Monad transaction reaches the signature step.
+              Verify both wallets against CleanGraph's TRWA policy before a Monad transaction reaches the signature step.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="rounded-[10px] bg-[#b8f34a] px-6 text-[#13210d] hover:bg-[#cbff67] active:translate-y-px" onClick={() => setView("workspace")}>
@@ -154,7 +154,7 @@ function App() {
             <CheckCircleIcon className="size-9" weight="fill" aria-hidden="true" />
             <div className="absolute bottom-8 left-7 right-7 sm:bottom-10 sm:left-10 sm:right-10 lg:bottom-12 lg:left-12 lg:right-12">
               <h2 className="max-w-[12ch] text-4xl font-medium leading-[0.98] tracking-[-0.055em] sm:text-5xl">Approval should mean more than a successful API call.</h2>
-              <p className="mt-6 max-w-lg leading-7 text-[#28401d]">Eligibility must satisfy the A-Token policy. Technical success alone never unlocks signing.</p>
+              <p className="mt-6 max-w-lg leading-7 text-[#28401d]">Eligibility must satisfy the local TRWA policy. Technical success alone never unlocks signing.</p>
             </div>
           </article>
 
@@ -221,7 +221,7 @@ function App() {
 }
 
 type ComplianceCheck = {
-  id: "sender-eligibility" | "recipient-eligibility" | "asset-rules"
+  id: "sender-eligibility" | "recipient-eligibility" | "asset-policy"
   status: "approved" | "denied"
   code: string
   message: string
@@ -243,11 +243,11 @@ type PreflightResult = {
 const evmAddressPattern = /^0x[0-9a-fA-F]{40}$/
 const tokenAmountPattern = /^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"
+const trwaTokenAddress = "0x07DF3e225e2a7e67056078cF240eF5A3bD966CB4"
 
 function TransferWorkspace({ onBack }: { onBack: () => void }) {
   const [sender, setSender] = useState("")
   const [recipient, setRecipient] = useState("")
-  const [atokenAddress, setATokenAddress] = useState("")
   const [amount, setAmount] = useState("")
   const [result, setResult] = useState<PreflightResult | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -281,11 +281,6 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
       return
     }
 
-    if (!evmAddressPattern.test(atokenAddress)) {
-      setFormError("Enter a valid A-Token contract address.")
-      return
-    }
-
     if (!tokenAmountPattern.test(amount) || !/[1-9]/.test(amount)) {
       setFormError("Enter an amount greater than zero with up to 18 decimal places.")
       return
@@ -296,8 +291,17 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/compliance/preflight`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chain: "monad", sender, recipient, atokenAddress, amount }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Request-ID": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          chain: "monad",
+          sender,
+          recipient,
+          tokenAddress: trwaTokenAddress,
+          amount,
+        }),
       })
       const payload = (await response.json()) as PreflightResult
 
@@ -362,7 +366,7 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.15em] text-[#b8f34a]">Transfer preflight</p>
             <h1 className="mt-3 text-3xl font-medium tracking-[-0.045em] text-[#f3f8f3] sm:text-4xl">Check eligibility before settlement.</h1>
           </div>
-          <p className="max-w-lg text-sm leading-6 text-[#9cad9f]">Validate the transfer intent, then verify both parties against the selected A-Token policy.</p>
+          <p className="max-w-lg text-sm leading-6 text-[#9cad9f]">Validate the transfer intent, then verify both parties against CleanGraph's local TRWA policy.</p>
         </div>
 
         <div className="grid overflow-hidden rounded-[16px] border border-white/[0.09] bg-[#0a1510] lg:grid-cols-[minmax(22rem,0.78fr)_minmax(0,1.22fr)]">
@@ -401,7 +405,6 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
               </div>
 
               <Field label="Recipient wallet" value={recipient} onChange={setRecipient} placeholder="0x..." helpText="Wallet proposed to receive the asset." />
-              <Field label="A-Token contract" value={atokenAddress} onChange={setATokenAddress} placeholder="0x..." helpText="Issued TRWA contract address on Monad." />
               <Field label="Amount" value={amount} onChange={setAmount} placeholder="0.00" helpText="Positive amount, up to 18 decimal places." inputMode="decimal" />
             </div>
 
@@ -445,7 +448,7 @@ function ComplianceTerminal({ checks, result, status }: { checks: ComplianceChec
   const terminalItems = [
     { id: "sender-eligibility", label: "Sender A-Pass" },
     { id: "recipient-eligibility", label: "Recipient A-Pass" },
-    { id: "asset-rules", label: "A-Token policy" },
+    { id: "asset-policy", label: "TRWA policy" },
   ] as const
 
   return (

@@ -17,7 +17,7 @@ Remaining:
 - add `@cleangraph/shared` and client-side validation;
 - connect `POST /api/v1/compliance/preflight`;
 - render ordered pending, approved, denied, and error checks;
-- request an A-Token signature only after approval;
+- request a TRWA transfer signature only after approval;
 - show transaction confirmation, explorer, and evidence/report states; and
 - add frontend and end-to-end tests.
 
@@ -32,4 +32,6 @@ pnpm dev:web
 The default development URL is `http://localhost:5173`.
 
 The browser must never receive the Cleanverse API ID, API key, decoded AES
-key, plaintext identity data, or encrypted request bodies.
+key, `OPERATOR_TOKEN`, deployer private key, plaintext identity data, or
+encrypted request bodies. TRWA compliance is an application preflight and does
+not restrict direct ERC-20 calls.

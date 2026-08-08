@@ -32,7 +32,7 @@ const decision: PreflightDecision = preflightDecisionSchema.parse(payload);
   "chain": "monad",
   "sender": "0x1111111111111111111111111111111111111111",
   "recipient": "0x2222222222222222222222222222222222222222",
-  "atokenAddress": "0x3333333333333333333333333333333333333333",
+  "tokenAddress": "0x3333333333333333333333333333333333333333",
   "amount": "100.5"
 }
 ```
@@ -49,14 +49,14 @@ policy evaluations:
 {
   "requestId": "123e4567-e89b-42d3-a456-426614174000",
   "approved": false,
-  "decisionCode": "RECIPIENT_NOT_ELIGIBLE",
+  "decisionCode": "RECIPIENT_POLICY_MISMATCH",
   "checks": [
     {
       "id": "recipient-eligibility",
-      "source": "cleanverse",
+      "source": "cleangraph",
       "status": "denied",
-      "code": "APASS_NOT_ELIGIBLE",
-      "message": "Recipient is not eligible to receive this A-Token.",
+      "code": "APASS_POLICY_MISMATCH",
+      "message": "Recipient A-Pass does not satisfy the local asset policy.",
       "checkedAt": "2026-07-30T12:00:00.000Z"
     }
   ]
@@ -75,3 +75,20 @@ The preflight endpoint uses these HTTP statuses:
 - `502`: Cleanverse unavailable or returned an invalid response
 - `504`: Cleanverse request timed out
 - `500`: unexpected internal failure
+
+The request contract is strict. `atokenAddress` is obsolete and rejected; use
+`tokenAddress`. Public checks expose only CleanGraph's normalized local policy
+decision and never raw A-Pass records, CV record identifiers, or KYC hashes.
+
+## Transaction evidence contracts
+
+The package exports `transactionEvidenceRequestSchema`,
+`transactionEvidenceResponseSchema`, and `evidenceErrorResponseSchema` for the
+protected post-settlement evidence flow. Requests contain the Monad transaction
+hash and involved wallet address. Responses keep index and report state
+separate: an empty index is `PENDING`, while an indexed transaction may have an
+`AVAILABLE` or `UNAVAILABLE` report.
+
+Amounts and fees remain base-unit strings and block times remain Unix seconds.
+Available report URLs must use HTTPS and may be time-limited, so callers must
+not cache, persist, or log them.

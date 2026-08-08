@@ -13,16 +13,16 @@ const validIntent = {
   chain: "monad",
   sender: "0x1111111111111111111111111111111111111111",
   recipient: "0x2222222222222222222222222222222222222222",
-  atokenAddress: "0x3333333333333333333333333333333333333333",
+  tokenAddress: "0x3333333333333333333333333333333333333333",
   amount: "100.5",
 };
 
 const completedCheck = {
   id: "sender-eligibility",
-  source: "cleanverse",
+  source: "cleangraph",
   status: "approved",
   code: "4",
-  message: "Sender may transfer this A-Token",
+  message: "Sender A-Pass satisfies the local asset policy",
   checkedAt: "2026-07-30T12:00:00.000Z",
 };
 
@@ -87,6 +87,16 @@ describe("transactionIntentSchema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("rejects the obsolete atokenAddress request property", () => {
+    const { tokenAddress, ...intent } = validIntent;
+    const result = transactionIntentSchema.safeParse({
+      ...intent,
+      atokenAddress: tokenAddress,
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("preflightDecisionSchema", () => {
@@ -105,7 +115,7 @@ describe("preflightDecisionSchema", () => {
     const result = preflightDecisionSchema.safeParse({
       requestId,
       approved: true,
-      decisionCode: "RECIPIENT_NOT_ELIGIBLE",
+      decisionCode: "RECIPIENT_POLICY_MISMATCH",
       checks: [completedCheck],
     });
 
@@ -116,14 +126,14 @@ describe("preflightDecisionSchema", () => {
     const result = preflightDecisionSchema.safeParse({
       requestId,
       approved: false,
-      decisionCode: "RECIPIENT_NOT_ELIGIBLE",
+      decisionCode: "RECIPIENT_POLICY_MISMATCH",
       checks: [
         {
           ...completedCheck,
           id: "recipient-eligibility",
           status: "denied",
-          code: "3",
-          message: "Recipient is not eligible to receive this A-Token",
+          code: "APASS_POLICY_MISMATCH",
+          message: "Recipient A-Pass does not satisfy the local asset policy",
         },
       ],
     });

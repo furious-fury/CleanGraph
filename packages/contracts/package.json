@@ -1,5 +1,5 @@
 {
-  "name": "@cleangraph/cleanverse-client",
+  "name": "@cleangraph/contracts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,18 +10,16 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
-    "lint": "oxlint src tests",
-    "test": "NODE_ENV=test TMPDIR=/tmp vitest run",
+    "build": "forge build && tsc -p tsconfig.json",
+    "lint": "forge fmt --check && oxlint src tests",
+    "test": "forge test && NODE_ENV=test TMPDIR=/tmp vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@cleangraph/shared": "workspace:*",
-    "zod": "^4.4.3"
+    "@openzeppelin/contracts": "5.4.0",
+    "viem": "2.37.9"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
     "oxlint": "^1.76.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.10"
