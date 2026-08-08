@@ -9,7 +9,7 @@ The frontend is a Vite/React application using shadcn/ui, and the backend is a
 Hono API running on Node.js. The repository now contains a fixed-supply
 self-deployed `TRWA` ERC-20 and viem helpers for Monad. Backend preflight
 queries sender and recipient A-Passes and evaluates CleanGraph's configured
-group, subgroup, country, status, and expiration policy.
+country, status, and expiration policy, with optional group and subgroup code checks.
 
 The Node-only Cleanverse client supports secure transport, A-Pass generation,
 A-Pass and A-Token compliance reads, encrypted A-Token launch, application
@@ -17,7 +17,7 @@ status reads, bounded status polling, transaction-index queries, and
 time-limited report downloads. A-Token client methods remain optional adapter
 functionality outside the primary demo. Hono exposes preflight and protected
 bounded transaction-evidence reads; it does not expose A-Token launch or status
-routes. No live A-Pass records have been created by the repository.
+routes. Live demo A-Passes are provisioned through the trusted backend/client workflow; no raw identity data is stored in the repository.
 
 `TRWA` is a CleanGraph hackathon token, not an officially issued or registered
 Cleanverse A-Token. CleanGraph's Cleanverse gate is application-level;
@@ -52,16 +52,16 @@ CLEANVERSE_BASE_URL=https://uatapi.cleanverse.com/api/cooperate
 CLEANVERSE_TIMEOUT_MS=10000
 OPERATOR_TOKEN=replace-with-at-least-32-random-characters
 TRWA_TOKEN_ADDRESS=0x...
-TRWA_ALLOWED_GROUP=Institutional Investor
-TRWA_ALLOWED_SUBGROUP=Accredited Investor
+# Optional exact, case-sensitive two-character provider codes. Leave blank for country-only policy.
+TRWA_ALLOWED_GROUP=
+TRWA_ALLOWED_SUBGROUP=
 TRWA_ALLOWED_COUNTRIES=US,GB,DE,SG
 ```
 
 `CLEANVERSE_BASE_URL` and `CLEANVERSE_TIMEOUT_MS` are optional. The base URL
 defaults to the Cleanverse sandbox and the timeout defaults to 10 seconds.
 `CLEANVERSE_API_BASE_URL` remains accepted as a backwards-compatible base URL
-name. Configure all four `TRWA_*` policy variables together; partial or
-malformed policy configuration is rejected. `OPERATOR_TOKEN` protects evidence
+name. Configure `TRWA_TOKEN_ADDRESS` and `TRWA_ALLOWED_COUNTRIES` together; partial or malformed policy configuration is rejected. `TRWA_ALLOWED_GROUP` and `TRWA_ALLOWED_SUBGROUP` are optional exact, case-sensitive two-character provider codes. `OPERATOR_TOKEN` protects evidence
 requests and must remain only in the backend environment.
 
 Useful checks:

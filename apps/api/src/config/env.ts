@@ -18,7 +18,7 @@ const optionalPolicyValue = z.preprocess(
     typeof value === "string" && value.trim() === ""
       ? undefined
       : value,
-  z.string().trim().min(1).optional(),
+  z.string().trim().regex(/^[A-Za-z0-9]{2}$/).optional(),
 );
 
 const optionalTokenAddress = z.preprocess(
@@ -88,20 +88,24 @@ export const environmentSchema = z
     TRWA_ALLOWED_COUNTRIES: optionalCountryAllowlist,
   })
   .superRefine((environment, context) => {
-    const names = [
+    const requiredNames = [
       "TRWA_TOKEN_ADDRESS",
-      "TRWA_ALLOWED_GROUP",
-      "TRWA_ALLOWED_SUBGROUP",
       "TRWA_ALLOWED_COUNTRIES",
     ] as const;
-    const configured = names.filter((name) => environment[name] !== undefined);
-    if (configured.length !== 0 && configured.length !== names.length) {
-      for (const name of names) {
+    const configured = requiredNames.filter((name) => environment[name] !== undefined);
+    const hasOptionalFilter =
+      environment.TRWA_ALLOWED_GROUP !== undefined ||
+      environment.TRWA_ALLOWED_SUBGROUP !== undefined;
+    if (
+      (configured.length !== 0 || hasOptionalFilter) &&
+      configured.length !== requiredNames.length
+    ) {
+      for (const name of requiredNames) {
         if (environment[name] === undefined) {
           context.addIssue({
             code: "custom",
             path: [name],
-            message: "All TRWA policy values must be configured together",
+            message: "TRWA token address and country allowlist must be configured together",
           });
         }
       }
@@ -112,8 +116,8 @@ export type Environment = z.infer<typeof environmentSchema>;
 
 export type TrwaPolicy = {
   tokenAddress: string;
-  allowedGroup: string;
-  allowedSubgroup: string;
+  allowedGroup?: string;
+  allowedSubgroup?: string;
   allowedCountries: readonly string[];
 };
 
@@ -129,17 +133,19 @@ export function getTrwaPolicy(
 ): TrwaPolicy | undefined {
   if (
     environment.TRWA_TOKEN_ADDRESS === undefined ||
-    environment.TRWA_ALLOWED_GROUP === undefined ||
-    environment.TRWA_ALLOWED_SUBGROUP === undefined ||
     environment.TRWA_ALLOWED_COUNTRIES === undefined
   ) {
     return undefined;
   }
   return {
     tokenAddress: environment.TRWA_TOKEN_ADDRESS,
-    allowedGroup: environment.TRWA_ALLOWED_GROUP,
-    allowedSubgroup: environment.TRWA_ALLOWED_SUBGROUP,
     allowedCountries: environment.TRWA_ALLOWED_COUNTRIES,
+    ...(environment.TRWA_ALLOWED_GROUP === undefined
+      ? {}
+      : { allowedGroup: environment.TRWA_ALLOWED_GROUP }),
+    ...(environment.TRWA_ALLOWED_SUBGROUP === undefined
+      ? {}
+      : { allowedSubgroup: environment.TRWA_ALLOWED_SUBGROUP }),
   };
 }
 

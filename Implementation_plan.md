@@ -83,16 +83,18 @@ The API accepts these backend-only values:
 CLEANVERSE_API_ID=
 CLEANVERSE_API_KEY=
 TRWA_TOKEN_ADDRESS=
-TRWA_ALLOWED_GROUP=Institutional Investor
-TRWA_ALLOWED_SUBGROUP=Accredited Investor
+# Optional exact, case-sensitive two-character provider codes
+TRWA_ALLOWED_GROUP=
+TRWA_ALLOWED_SUBGROUP=
 TRWA_ALLOWED_COUNTRIES=US,GB,DE,SG
 OPERATOR_TOKEN=
 ```
 
-All four TRWA policy values are optional as a group. With none, preflight is
-unavailable and returns safe `503`. Partial, duplicate-country, lowercase-
-country, empty, or malformed address configuration is rejected during
-environment validation.
+`TRWA_TOKEN_ADDRESS` and `TRWA_ALLOWED_COUNTRIES` are required together. With
+neither, preflight is unavailable and returns safe `503`. Group and subgroup
+filters are optional exact, case-sensitive two-character provider codes.
+Partial, duplicate-country, lowercase-country, empty, or malformed address
+configuration is rejected during environment validation.
 
 ### Request and evaluation order
 

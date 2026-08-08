@@ -25,13 +25,13 @@
    Cleanverse A-Token.
 5. [x] Define compliance as application-level only.
 6. [x] Document that direct ERC-20 transfers can bypass preflight.
-7. [x] Choose local group `Institutional Investor`.
-8. [x] Choose local subgroup `Accredited Investor`.
+7. [x] Support an optional exact provider group code.
+8. [x] Support an optional exact provider subgroup code.
 9. [x] Choose country allowlist `US`, `GB`, `DE`, and `SG`.
 10. [x] Exclude tier, sub-tier, and transfer amount policy from the MVP.
 11. [x] Define Wallet A with allowed country `GB`.
 12. [x] Define Wallet B with denied country `BR`.
-13. [ ] Confirm live Cleanverse group and subgroup values.
+13. [x] Confirm live demo A-Pass group and subgroup values are blank; leave both filters disabled.
 14. [ ] Confirm final Monad testnet RPC, chain ID, and explorer.
 
 ## 2. Contract package
@@ -87,9 +87,9 @@ seed, funded environment file, or operator token.
 ## 5. Backend configuration
 
 1. [x] Add `TRWA_TOKEN_ADDRESS`.
-2. [x] Add exact `TRWA_ALLOWED_GROUP` and `TRWA_ALLOWED_SUBGROUP`.
+2. [x] Add optional exact two-character `TRWA_ALLOWED_GROUP` and `TRWA_ALLOWED_SUBGROUP` codes.
 3. [x] Parse `TRWA_ALLOWED_COUNTRIES` as unique uppercase comma-separated codes.
-4. [x] Require all four policy values together.
+4. [x] Require `TRWA_TOKEN_ADDRESS` and `TRWA_ALLOWED_COUNTRIES` together.
 5. [x] Leave preflight safely unavailable when all policy values are absent.
 6. [x] Reject partial or malformed policy configuration.
 7. [x] Replace `ASSET_OPERATOR_TOKEN` with `OPERATOR_TOKEN`.
@@ -106,7 +106,7 @@ seed, funded environment file, or operator token.
 6. [x] Query recipient only after sender passes.
 7. [x] Require `ACTIVE` status.
 8. [x] Require expiration strictly after current Unix time.
-9. [x] Require exact group and subgroup matches.
+9. [x] Require exact group and subgroup matches only when configured.
 10. [x] Require at least one allowed country.
 11. [x] Avoid tier, sub-tier, and amount-limit policy.
 12. [x] Return sender/recipient inactive, expired, and policy-mismatch codes.

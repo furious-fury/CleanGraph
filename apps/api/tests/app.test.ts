@@ -166,8 +166,6 @@ describe("CleanGraph API", () => {
         CLEANVERSE_API_ID: "test-api-id",
         CLEANVERSE_API_KEY: Buffer.alloc(32, 7).toString("base64"),
         TRWA_TOKEN_ADDRESS: validIntent.tokenAddress,
-        TRWA_ALLOWED_GROUP: "Institutional Investor",
-        TRWA_ALLOWED_SUBGROUP: "Accredited Investor",
         TRWA_ALLOWED_COUNTRIES: ["US", "GB", "DE", "SG"],
       },
       logFailure: vi.fn(),
