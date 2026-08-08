@@ -26,8 +26,8 @@ const nowSeconds = Math.floor(fixedTime.getTime() / 1_000);
 
 const policy: TrwaPolicy = {
   tokenAddress,
-  allowedGroup: "Institutional Investor",
-  allowedSubgroup: "Accredited Investor",
+  allowedGroup: "AB",
+  allowedSubgroup: "CD",
   allowedCountries: ["US", "GB", "DE", "SG"],
 };
 
@@ -47,8 +47,8 @@ function pass(overrides: Partial<QueryAPassResult> = {}): QueryAPassResult {
     statusCode: 1,
     status: "ACTIVE",
     expirationTime: nowSeconds + 3_600,
-    group: policy.allowedGroup,
-    subGroup: policy.allowedSubgroup,
+    group: policy.allowedGroup!,
+    subGroup: policy.allowedSubgroup!,
     currentKycHash: "sensitive-kyc-hash",
     countries: ["GB"],
     ...overrides,
@@ -117,6 +117,25 @@ describe("self-deployed TRWA preflight", () => {
     expect(JSON.stringify(result)).not.toMatch(/sensitive-cv|sensitive-kyc|sensitive-tier/);
   });
 
+
+  it("approves active country-matching passes when group and subgroup are not configured", async () => {
+    const countryOnlyPolicy: TrwaPolicy = {
+      tokenAddress,
+      allowedCountries: ["GB", "DE"],
+    };
+    const { reader } = readerWith(
+      pass({ group: "", subGroup: "", countries: ["GB"] }),
+      pass({ group: "", subGroup: "", countries: ["DE"] }),
+    );
+
+    const result = await createPreflightService(reader, countryOnlyPolicy, { clock: () => fixedTime })
+      .evaluate(intent, requestId);
+
+    expect(result).toMatchObject({
+      kind: "decision",
+      decision: { approved: true, decisionCode: "TRANSFER_APPROVED" },
+    });
+  });
   it.each([
     ["inactive", { status: "FROZEN", statusCode: 2 }, "APASS_INACTIVE", "APASS_INACTIVE"],
     ["expired", { expirationTime: nowSeconds }, "APASS_EXPIRED", "APASS_EXPIRED"],
@@ -139,6 +158,7 @@ describe("self-deployed TRWA preflight", () => {
       expect(queryAPass).toHaveBeenCalledTimes(1);
     },
   );
+
 
   it.each([
     ["inactive", { status: "FROZEN", statusCode: 2 }, "APASS_INACTIVE", "APASS_INACTIVE"],

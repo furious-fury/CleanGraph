@@ -89,8 +89,8 @@ when all conditions hold:
 
 - status is `ACTIVE`;
 - expiration is strictly later than the current Unix time;
-- group exactly matches `TRWA_ALLOWED_GROUP`;
-- subgroup exactly matches `TRWA_ALLOWED_SUBGROUP`; and
+- group exactly matches `TRWA_ALLOWED_GROUP` when that optional code is configured;
+- subgroup exactly matches `TRWA_ALLOWED_SUBGROUP` when that optional code is configured; and
 - at least one A-Pass country is in `TRWA_ALLOWED_COUNTRIES`.
 
 The MVP has no tier, sub-tier, or per-transfer amount policy. The amount remains

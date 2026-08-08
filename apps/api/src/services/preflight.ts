@@ -164,8 +164,8 @@ function evaluateAPass(
     policy.allowedCountries.includes(country),
   );
   if (
-    result.group !== policy.allowedGroup ||
-    result.subGroup !== policy.allowedSubgroup ||
+    (policy.allowedGroup !== undefined && result.group !== policy.allowedGroup) ||
+    (policy.allowedSubgroup !== undefined && result.subGroup !== policy.allowedSubgroup) ||
     !countryMatches
   ) {
     return {
