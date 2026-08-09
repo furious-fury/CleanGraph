@@ -6,6 +6,7 @@ import {
   CleanverseMalformedResponseError,
   CleanverseNetworkError,
   CleanverseTimeoutError,
+  isCleanverseAPassMissingError,
   type CleanverseClient,
   type GenerateAPassInput,
 } from "@cleangraph/cleanverse-client";
@@ -54,24 +55,45 @@ export class DemoAPassServiceError extends Error {
     | "CHALLENGE_REPLAYED"
     | "WALLET_SIGNATURE_INVALID"
     | "ONBOARDING_NOT_FOUND"
+    | "APASS_NOT_FOUND"
+    | "APASS_INACTIVE"
     | "CLEANVERSE_REJECTED"
     | "CLEANVERSE_UNAVAILABLE"
     | "CLEANVERSE_TIMEOUT";
   readonly status: 401 | 404 | 409 | 410 | 429 | 502 | 504;
   readonly retryAfterSeconds: number | undefined;
+  readonly upstreamCode: string | undefined;
 
   constructor(
     code: DemoAPassServiceError["code"],
     status: DemoAPassServiceError["status"],
     message: string,
     retryAfterSeconds?: number,
+    upstreamCode?: string,
   ) {
     super(message);
     this.name = "DemoAPassServiceError";
     this.code = code;
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.upstreamCode = upstreamCode;
   }
+}
+
+export function isDemoAPassServiceError(
+  error: unknown,
+): error is DemoAPassServiceError {
+  if (error instanceof DemoAPassServiceError) return true;
+  if (!(error instanceof Error) || error.name !== "DemoAPassServiceError") {
+    return false;
+  }
+
+  const candidate = error as Partial<DemoAPassServiceError>;
+  return (
+    typeof candidate.code === "string" &&
+    typeof candidate.status === "number" &&
+    typeof candidate.message === "string"
+  );
 }
 
 export type DemoAPassSafeResponse = {
@@ -214,9 +236,16 @@ export function createDemoAPassService(
         );
         throw mapCleanverseError(error);
       }
-      if (existing === "ACTIVE" || existing === "FROZEN") {
+      if (existing === "ACTIVE") {
         onboarding = await store.markActive(onboarding.id, now());
         return safeResponse(onboarding, "ALREADY_EXISTS");
+      }
+      if (existing === "FROZEN") {
+        throw new DemoAPassServiceError(
+          "APASS_INACTIVE",
+          409,
+          "Cleanverse found an A-Pass for this wallet, but it is not active.",
+        );
       }
 
       if (!issuanceClaimed) {
@@ -276,14 +305,7 @@ export function createDemoAPassService(
       });
 
       let onboarding = await store.getOnboardingForWallet(walletAddress);
-      if (!onboarding) {
-        throw new DemoAPassServiceError(
-          "ONBOARDING_NOT_FOUND",
-          404,
-          "No demo A-Pass onboarding was found for this wallet.",
-        );
-      }
-      if (onboarding.state === "ACTIVE" || onboarding.state === "CREATING") {
+      if (onboarding?.state === "CREATING") {
         return safeResponse(onboarding);
       }
 
@@ -298,9 +320,27 @@ export function createDemoAPassService(
         throw mapCleanverseError(error);
       }
       if (existing === "ACTIVE") {
-        onboarding = await store.markActive(onboarding.id, now());
+        if (onboarding) {
+          onboarding = await store.markActive(onboarding.id, now());
+          return safeResponse(onboarding);
+        }
+        return { walletAddress, status: "ACTIVE" };
       }
-      return safeResponse(onboarding);
+      if (existing === "FROZEN") {
+        throw new DemoAPassServiceError(
+          "APASS_INACTIVE",
+          409,
+          "Cleanverse found an A-Pass for this wallet, but it is not active.",
+        );
+      }
+      if (onboarding?.state === "PENDING") {
+        return safeResponse(onboarding);
+      }
+      throw new DemoAPassServiceError(
+        "APASS_NOT_FOUND",
+        404,
+        "Cleanverse does not have an A-Pass for this wallet.",
+      );
     },
   };
 }
@@ -462,10 +502,7 @@ async function queryExistingAPass(
     );
     return response.data.status;
   } catch (error) {
-    if (
-      error instanceof CleanverseBusinessError &&
-      error.cleanverseCode === "0002"
-    ) {
+    if (isCleanverseAPassMissingError(error)) {
       return "MISSING";
     }
     throw error;
@@ -491,10 +528,15 @@ function mapCleanverseError(error: unknown): DemoAPassServiceError {
     );
   }
   if (error instanceof CleanverseBusinessError) {
+    const message = error.cleanverseCode === "1000"
+      ? "Cleanverse found existing A-Pass group data and requires an explicit override. CleanGraph demo mode will not overwrite existing compliance data."
+      : `Cleanverse rejected the demo A-Pass request with business code ${error.cleanverseCode}.`;
     return new DemoAPassServiceError(
       "CLEANVERSE_REJECTED",
       502,
-      "Cleanverse rejected the demo A-Pass request.",
+      message,
+      undefined,
+      error.cleanverseCode,
     );
   }
   return new DemoAPassServiceError(

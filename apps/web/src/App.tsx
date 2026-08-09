@@ -21,37 +21,50 @@ import {
   useState,
   type FormEvent,
 } from "react"
+import { Dialog as DialogPrimitive } from "radix-ui"
 import {
   transactionIntentSchema,
   type ComplianceCheck,
 } from "@cleangraph/shared"
 import { getExplorerTransactionUrl } from "@cleangraph/contracts"
-import { getAddress, type Hash } from "viem"
+import { getAddress, type Address, type Hash, type Hex } from "viem"
 
 import heroImage from "@/assets/hero.png"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+} from "@/components/ui/select"
+import {
   requestPreflight,
   requestReadiness,
   type PreflightResult,
 } from "@/lib/api"
 import {
-  DemoAPassActivationTimeoutError,
   DemoAPassApiError,
   getDemoAPassErrorMessage,
   requestDemoAPassChallenge,
   requestDemoAPassEnrollment,
-  waitForDemoAPassActivation,
+  requestDemoAPassStatus,
   type DemoAPassEnrollment,
   type DemoAPassProfile,
 } from "@/lib/apass"
 import {
   getBalanceErrorMessage,
-  requestTrwaBalance,
+  requestWalletBalances,
 } from "@/lib/balance"
 import { resolveFrontendConfig } from "@/lib/config"
+import {
+  getExternalWalletErrorMessage,
+  type ExternalEvmWallet,
+  type ExternalWalletController,
+} from "@/lib/wallet"
 import {
   connectMeraWallet,
   createMeraWallet,
@@ -93,11 +106,11 @@ function BrandMark() {
   )
 }
 
-function App() {
+function App({ externalWallet }: { externalWallet: ExternalWalletController }) {
   const [view, setView] = useState<"landing" | "workspace">("landing")
 
   if (view === "workspace") {
-    return <TransferWorkspace onBack={() => setView("landing")} />
+    return <TransferWorkspace externalWallet={externalWallet} onBack={() => setView("landing")} />
   }
 
   return (
@@ -130,7 +143,7 @@ function App() {
               Clear transfers before signing.
             </h1>
             <p className="mt-7 max-w-lg text-lg leading-8 text-[#a9b8ad]">
-              Connect a passkey wallet, create or confirm its A-Pass, then verify both parties before a Monad transaction reaches signing.
+              Connect a passkey or external wallet, create or confirm its A-Pass, then verify both parties before a Monad transaction reaches signing.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="rounded-[10px] bg-[#b8f34a] px-6 text-[#13210d] hover:bg-[#cbff67] active:translate-y-px" onClick={() => setView("workspace")}>
@@ -171,7 +184,7 @@ function App() {
 
             <ol className="mt-14 grid border-y border-white/[0.1] md:grid-cols-3 md:divide-x md:divide-white/[0.1]">
               {[
-                ["Connect", "Create or unlock a Mera passkey wallet."],
+                ["Connect", "Use a Mera passkey or an existing EVM wallet."],
                 ["Get an A-Pass", "Issue a fictional sandbox profile or use an existing credential."],
                 ["Check and settle", "Only a compliant transfer can reach wallet signing."],
               ].map(([title, copy], index) => (
@@ -275,25 +288,30 @@ type ServiceState = "checking" | "ready" | "unavailable"
 type BalanceState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; formatted: string }
+  | { status: "ready"; nativeFormatted: string; trwaFormatted?: string }
   | { status: "error"; message: string }
-type APassBusyStatus = "requesting" | "authorizing" | "issuing" | "pending"
+type APassBusyStatus = "requesting" | "authorizing" | "issuing" | "status-requesting" | "status-authorizing" | "status-checking"
 type APassSetupState =
   | { status: "needed" }
   | { status: APassBusyStatus }
+  | { status: "pending"; enrollment: DemoAPassEnrollment }
   | { status: "active"; enrollment: DemoAPassEnrollment }
-  | { status: "existing" }
-  | { status: "error"; message: string; requestId?: string }
+  | { status: "existing"; enrollment: DemoAPassEnrollment }
+  | { status: "error"; message: string; requestId?: string; code?: string; retryAfterSeconds?: number }
 type SettlementState =
   | { status: "idle" }
   | { status: TransferPhase; transactionHash?: Hash }
   | { status: "confirmed"; transfer: ConfirmedTransfer }
   | { status: "error"; message: string }
+type WalletConnection =
+  | { kind: "mera"; address: Address; label: "Mera passkey" }
+  | { kind: "external"; address: Address; label: string; wallet: ExternalEvmWallet }
+type WalletConnectMode = "create" | "connect" | "external"
 
 const frontendConfigResult = resolveFrontendConfig(import.meta.env)
 
-function TransferWorkspace({ onBack }: { onBack: () => void }) {
-  const [sender, setSender] = useState("")
+function TransferWorkspace({ externalWallet, onBack }: { externalWallet: ExternalWalletController; onBack: () => void }) {
+  const [walletConnection, setWalletConnection] = useState<WalletConnection | null>(null)
   const [recipient, setRecipient] = useState("")
   const [amount, setAmount] = useState("")
   const [result, setResult] = useState<WorkspacePreflightResult | null>(null)
@@ -301,7 +319,7 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
   const [settlement, setSettlement] = useState<SettlementState>({ status: "idle" })
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isConnectingWallet, setIsConnectingWallet] = useState(false)
+  const [connectingWallet, setConnectingWallet] = useState<WalletConnectMode | null>(null)
   const [walletError, setWalletError] = useState<string | null>(null)
   const [balance, setBalance] = useState<BalanceState>({ status: "idle" })
   const [apassProfile, setAPassProfile] = useState<DemoAPassProfile>("ELIGIBLE_GB")
@@ -314,8 +332,9 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
   const apassRequest = useRef<AbortController | null>(null)
 
   const config = frontendConfigResult.ok ? frontendConfigResult.config : undefined
+  const sender = walletConnection?.address ?? ""
   const isSettling = ["authorizing", "simulating", "signing", "confirming"].includes(settlement.status)
-  const isSettingUpAPass = ["requesting", "authorizing", "issuing", "pending"].includes(apassSetup.status)
+  const isSettingUpAPass = isAPassBusyStatus(apassSetup.status)
   const hasAPass = apassSetup.status === "active" || apassSetup.status === "existing"
   const canEnterTransfer = sender !== "" && hasAPass
 
@@ -341,9 +360,13 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
     setBalance({ status: "loading" })
 
     try {
-      const currentBalance = await requestTrwaBalance(config, getAddress(address))
+      const currentBalance = await requestWalletBalances(config, getAddress(address))
       if (balanceRequest.current === request) {
-        setBalance({ status: "ready", formatted: currentBalance.formatted })
+        setBalance({
+          status: "ready",
+          nativeFormatted: currentBalance.native.formatted,
+          ...(currentBalance.trwa ? { trwaFormatted: currentBalance.trwa.formatted } : {}),
+        })
       }
     } catch (error) {
       if (balanceRequest.current === request) {
@@ -497,7 +520,7 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
   }
 
   async function settleApprovedTransfer() {
-    if (settlementLock.current || !config || !approvedIntent || !result || !("approved" in result) || !result.approved) return
+    if (settlementLock.current || !config || !walletConnection || !approvedIntent || !result || !("approved" in result) || !result.approved) return
 
     settlementLock.current = true
     setSettlement({ status: "authorizing" })
@@ -505,6 +528,9 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
       const confirmed = await executeApprovedTransfer(
         config,
         approvedIntent,
+        walletConnection.kind === "mera"
+          ? { kind: "mera" }
+          : { kind: "external", wallet: walletConnection.wallet },
         (phase, transactionHash) => {
           setSettlement({
             status: phase,
@@ -522,39 +548,54 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
     }
   }
 
-  async function connectWallet(mode: "create" | "connect") {
+  async function connectWallet(mode: WalletConnectMode) {
     setWalletError(null)
-    setIsConnectingWallet(true)
+    setConnectingWallet(mode)
 
     try {
-      const wallet = mode === "create" ? await createMeraWallet() : await connectMeraWallet()
+      const connection: WalletConnection = mode === "external"
+        ? await externalWallet.connect().then((wallet) => {
+            disconnectMeraWallet()
+            return { kind: "external", address: wallet.address, label: wallet.label, wallet }
+          })
+        : await (mode === "create" ? createMeraWallet() : connectMeraWallet()).then((wallet) => {
+            externalWallet.disconnect()
+            return { kind: "mera", address: getAddress(wallet.address), label: "Mera passkey" }
+          })
       apassRequest.current?.abort()
-      setSender(wallet.address)
+      setWalletConnection(connection)
       setAPassSetup({ status: "needed" })
       invalidateApproval()
     } catch (error) {
-      setWalletError(getMeraErrorMessage(error))
+      setWalletError(mode === "external" ? getExternalWalletErrorMessage(error) : getMeraErrorMessage(error))
     } finally {
-      setIsConnectingWallet(false)
+      setConnectingWallet(null)
     }
   }
 
   function disconnectWallet() {
     apassRequest.current?.abort()
     apassRequest.current = null
-    disconnectMeraWallet()
-    setSender("")
+    if (walletConnection?.kind === "external") externalWallet.disconnect()
+    else disconnectMeraWallet()
+    setWalletConnection(null)
     setAPassSetup({ status: "needed" })
     setResult(null)
     setApprovedIntent(null)
     setSettlement({ status: "idle" })
   }
 
-  function useExistingAPass() {
-    apassRequest.current?.abort()
-    apassRequest.current = null
-    invalidateApproval()
-    setAPassSetup({ status: "existing" })
+  async function signConnectedWalletMessage(expectedAddress: Address, message: string): Promise<Hex> {
+    if (walletConnection?.kind === "external") {
+      return walletConnection.wallet.signMessage(expectedAddress, message)
+    }
+    return signMeraMessage(expectedAddress, message)
+  }
+
+  function connectedWalletErrorMessage(error: unknown): string {
+    return walletConnection?.kind === "external"
+      ? getExternalWalletErrorMessage(error)
+      : getMeraErrorMessage(error)
   }
 
   function resetAPassSetup() {
@@ -582,9 +623,13 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
     setAPassSetup({ status: "requesting" })
 
     try {
-      const challenge = await requestDemoAPassChallenge(config, walletAddress, controller.signal)
+      const challenge = await requestDemoAPassChallenge(config, {
+        walletAddress,
+        purpose: "CREATE",
+        profile: apassProfile,
+      }, controller.signal)
       setAPassSetup({ status: "authorizing" })
-      const signature = await signMeraMessage(walletAddress, challenge.message)
+      const signature = await signConnectedWalletMessage(walletAddress, challenge.message)
 
       if (controller.signal.aborted) return
       setAPassSetup({ status: "issuing" })
@@ -595,29 +640,94 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
         profile: apassProfile,
       }, controller.signal)
 
-      if (enrollment.state === "ACTIVE") {
+      if (enrollment.status === "ACTIVE") {
         setAPassSetup({ status: "active", enrollment })
         return
       }
 
-      setAPassSetup({ status: "pending" })
-      const activeEnrollment = await waitForDemoAPassActivation(config, enrollment, {
-        signal: controller.signal,
-      })
-      setAPassSetup({ status: "active", enrollment: activeEnrollment })
+      if (enrollment.status === "ALREADY_EXISTS") {
+        setAPassSetup({ status: "existing", enrollment })
+        return
+      }
+
+      setAPassSetup({ status: "pending", enrollment })
     } catch (error) {
       if (controller.signal.aborted) return
 
-      if (error instanceof DemoAPassApiError || error instanceof DemoAPassActivationTimeoutError) {
+      if (error instanceof DemoAPassApiError) {
         setAPassSetup({
           status: "error",
           message: getDemoAPassErrorMessage(error),
-          ...(error instanceof DemoAPassApiError && error.requestId !== undefined
+          code: error.code,
+          ...(error.requestId !== undefined
             ? { requestId: error.requestId }
             : {}),
+          ...(error.retryAfterSeconds === undefined
+            ? {}
+            : { retryAfterSeconds: error.retryAfterSeconds }),
         })
       } else {
-        setAPassSetup({ status: "error", message: getMeraErrorMessage(error) })
+        setAPassSetup({ status: "error", message: connectedWalletErrorMessage(error) })
+      }
+    } finally {
+      if (apassRequest.current === controller) apassRequest.current = null
+    }
+  }
+
+  async function checkDemoAPassStatus() {
+    if (!config || serviceState !== "ready" || sender === "" || isSettingUpAPass) return
+
+    let walletAddress: ReturnType<typeof getAddress>
+    try {
+      walletAddress = getAddress(sender)
+    } catch {
+      setAPassSetup({ status: "error", message: "Reconnect a valid sender wallet before checking A-Pass status." })
+      return
+    }
+
+    apassRequest.current?.abort()
+    const controller = new AbortController()
+    apassRequest.current = controller
+    setAPassSetup({ status: "status-requesting" })
+
+    try {
+      const challenge = await requestDemoAPassChallenge(config, {
+        walletAddress,
+        purpose: "STATUS",
+      }, controller.signal)
+      setAPassSetup({ status: "status-authorizing" })
+      const signature = await signConnectedWalletMessage(walletAddress, challenge.message)
+
+      if (controller.signal.aborted) return
+      setAPassSetup({ status: "status-checking" })
+      const enrollment = await requestDemoAPassStatus(config, {
+        walletAddress,
+        challengeId: challenge.challengeId,
+        signature,
+      }, controller.signal)
+
+      if (enrollment.status === "ACTIVE") {
+        setAPassSetup({ status: "active", enrollment })
+      } else if (enrollment.status === "ALREADY_EXISTS") {
+        setAPassSetup({ status: "existing", enrollment })
+      } else {
+        setAPassSetup({ status: "pending", enrollment })
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return
+
+      if (error instanceof DemoAPassApiError) {
+        setAPassSetup({
+          status: "error",
+          message: getDemoAPassErrorMessage(error),
+          code: error.code,
+          ...(error.requestId === undefined ? {} : { requestId: error.requestId }),
+          ...(error.retryAfterSeconds === undefined
+            ? {}
+            : { retryAfterSeconds: error.retryAfterSeconds }),
+        })
+      } else {
+        setAPassSetup({ status: "error", message: connectedWalletErrorMessage(error) })
       }
     } finally {
       if (apassRequest.current === controller) apassRequest.current = null
@@ -626,29 +736,58 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] bg-[#07100c] text-[#edf4ee] selection:bg-[#b8f34a] selection:text-[#13210d]">
-      <header className="border-b border-white/[0.08] bg-[#07100c]/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#07100c]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[68px] max-w-[1500px] items-center justify-between px-5 sm:px-8">
           <button type="button" onClick={onBack} className="group flex items-center gap-3 font-semibold tracking-[-0.02em]">
             <BrandMark />
-            <span>CleanGraph</span>
-            <ArrowLeftIcon className="ml-1 size-4 text-[#718376] transition-transform group-hover:-translate-x-0.5" aria-hidden="true" />
+            <span className="hidden sm:inline">CleanGraph</span>
+            <ArrowLeftIcon className="ml-1 hidden size-4 text-[#718376] transition-transform group-hover:-translate-x-0.5 sm:block" aria-hidden="true" />
           </button>
-          <div className="flex items-center gap-3 text-sm text-[#9cad9f]">
-            <span className="hidden font-mono text-xs sm:inline">{sender ? shortenAddress(sender) : "NO WALLET"}</span>
-            <span className={`rounded-[8px] border px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.08em] ${serviceState === "ready" ? "border-[#b8f34a]/20 bg-[#b8f34a]/[0.08] text-[#b8f34a]" : serviceState === "checking" ? "border-white/[0.1] bg-white/[0.035] text-[#9cad9f]" : "border-[#f2bd68]/25 bg-[#f2bd68]/[0.08] text-[#f5c77c]"}`}>
+          <div className="flex min-w-0 items-center gap-2 text-sm text-[#9cad9f] sm:gap-3">
+            {sender && (
+              <div
+                aria-label={balance.status === "ready"
+                  ? `${balance.nativeFormatted} MON`
+                  : balance.status === "error"
+                    ? "MON balance unavailable"
+                    : "Loading MON balance"}
+                title={balance.status === "error" ? balance.message : undefined}
+                className="flex h-9 min-w-0 max-w-[9rem] items-center overflow-hidden rounded-[8px] border border-white/[0.1] bg-white/[0.035] font-mono md:max-w-none"
+              >
+                <span className="min-w-0 truncate px-2.5 text-[11px] text-[#edf4ee]">
+                  <span className="mr-1 text-[#718376]">MON</span>
+                  {balance.status === "ready" ? balance.nativeFormatted : balance.status === "loading" ? "..." : "--"}
+                </span>
+              </div>
+            )}
+            <span className="hidden font-mono text-xs lg:inline">{sender ? shortenAddress(sender) : "NO WALLET"}</span>
+            {sender && (
+              <Button type="button" variant="outline" size="sm" onClick={disconnectWallet} disabled={isSubmitting || isSettling} className="rounded-[8px] border-white/15 bg-transparent text-[#dce6de] hover:bg-white/[0.06] hover:text-white">
+                <span className="hidden sm:inline">Change wallet</span>
+                <span className="sm:hidden">Change</span>
+              </Button>
+            )}
+            <span className={`hidden rounded-[8px] border px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.08em] sm:inline ${serviceState === "ready" ? "border-[#b8f34a]/20 bg-[#b8f34a]/[0.08] text-[#b8f34a]" : serviceState === "checking" ? "border-white/[0.1] bg-white/[0.035] text-[#9cad9f]" : "border-[#f2bd68]/25 bg-[#f2bd68]/[0.08] text-[#f5c77c]"}`}>
               {serviceState === "ready" ? "SERVICE READY" : serviceState === "checking" ? "CHECKING" : "UNAVAILABLE"}
             </span>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8 lg:py-10">
-        <div className="mb-8 flex flex-col justify-between gap-5 border-b border-white/[0.09] pb-7 md:flex-row md:items-end">
-          <div>
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.15em] text-[#b8f34a]">Compliant transfer workspace</p>
-            <h1 className="mt-3 text-3xl font-medium tracking-[-0.045em] text-[#f3f8f3] sm:text-4xl">Connect, qualify, then settle.</h1>
-          </div>
-          <p className="max-w-lg text-sm leading-6 text-[#9cad9f]">Create or confirm an A-Pass for the sender, then verify both wallets against CleanGraph's TRWA policy.</p>
+      <WalletEntryDialog
+        open={walletConnection === null}
+        externalWalletEnabled={externalWallet.enabled}
+        connectingWallet={connectingWallet}
+        error={walletError}
+        onConnect={(mode) => void connectWallet(mode)}
+        onBack={onBack}
+      />
+
+      <main className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 lg:py-10">
+        <div className="mb-7 border-b border-white/[0.09] pb-7">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.15em] text-[#b8f34a]">Compliant transfer workspace</p>
+          <h1 className="mt-3 text-3xl font-medium tracking-[-0.045em] text-[#f3f8f3] sm:text-4xl">Qualify the sender. Clear the transfer.</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#9cad9f]">The connected wallet is the sender. Confirm its A-Pass, enter the recipient and amount, then run preflight.</p>
         </div>
 
         <div role="status" className={`mb-5 flex flex-col gap-3 rounded-[12px] border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${serviceState === "ready" ? "border-[#b8f34a]/20 bg-[#b8f34a]/[0.06] text-[#c9e6a3]" : serviceState === "checking" ? "border-white/[0.09] bg-white/[0.025] text-[#9cad9f]" : "border-[#f2bd68]/25 bg-[#f2bd68]/[0.07] text-[#f5c77c]"}`}>
@@ -669,58 +808,17 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
           transferConfirmed={settlement.status === "confirmed"}
         />
 
-        <div className="mt-5 grid overflow-hidden rounded-[16px] border border-white/[0.09] bg-[#0a1510] lg:grid-cols-[minmax(22rem,0.78fr)_minmax(0,1.22fr)]">
-          <form onSubmit={runPreflight} className="border-b border-white/[0.09] p-5 sm:p-7 lg:border-b-0 lg:border-r" noValidate>
+        <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <form onSubmit={runPreflight} className="rounded-[16px] border border-white/[0.09] bg-[#0a1510] p-5 shadow-[0_24px_70px_rgba(2,8,5,0.24)] sm:p-7 lg:p-8" noValidate>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-medium text-[#edf4ee]">Wallet and transfer</h2>
-                <p className="mt-1 text-sm leading-6 text-[#87998b]">A-Pass setup signs a wallet challenge. Preflight does not.</p>
+                <h2 className="text-xl font-medium tracking-[-0.025em] text-[#edf4ee]">Transfer setup</h2>
+                <p className="mt-1 text-sm leading-6 text-[#87998b]">A-Pass actions require a signature. Preflight checks do not.</p>
               </div>
               <ClipboardTextIcon className="size-5 text-[#b8f34a]" aria-hidden="true" />
             </div>
 
-            <div className="mt-7 space-y-5">
-              <div className="rounded-[12px] border border-white/[0.09] bg-white/[0.025] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <Label className="text-sm text-[#edf4ee]">Sender wallet</Label>
-                    <p className="mt-1 text-xs leading-5 text-[#87998b]">Mera passkey wallet</p>
-                  </div>
-                  {sender && <Button type="button" variant="outline" size="sm" onClick={disconnectWallet} disabled={isSubmitting || isSettling} className="rounded-[8px] border-white/15 bg-transparent text-[#edf4ee] hover:bg-white/[0.06] hover:text-white">Disconnect</Button>}
-                </div>
-
-                {sender ? (
-                  <>
-                    <p className="mt-4 break-all rounded-[8px] border border-[#b8f34a]/20 bg-[#b8f34a]/[0.07] px-3 py-2.5 font-mono text-xs leading-5 text-[#cef88a]">{sender}</p>
-                    <div aria-live="polite" className="mt-3 rounded-[10px] border border-white/[0.09] bg-[#07100c]/70 p-3.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-[#7e9183]">TRWA balance</p>
-                          <p className={`mt-1 break-all font-mono text-sm tabular-nums ${balance.status === "error" ? "text-[#f5c77c]" : "text-[#edf4ee]"}`}>
-                            {balance.status === "ready" ? `${balance.formatted} TRWA` : balance.status === "loading" ? "Reading balance..." : balance.status === "error" ? "Unavailable" : "Not loaded"}
-                          </p>
-                        </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => void refreshBalance(sender)} disabled={balance.status === "loading" || isSettling} className="rounded-[8px] border-white/15 bg-transparent text-[#b7c4ba] hover:bg-white/[0.06] hover:text-white">
-                          {balance.status === "loading" && <CircleNotchIcon className="size-3.5 animate-spin" aria-hidden="true" />}
-                          Refresh
-                        </Button>
-                      </div>
-                      {balance.status === "error" && <p role="alert" className="mt-2 text-xs leading-5 text-[#d8a962]">{balance.message}</p>}
-                    </div>
-                  </>
-                ) : (
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                    <Button type="button" size="sm" disabled={isConnectingWallet || isSubmitting || isSettling} onClick={() => connectWallet("create")} className="rounded-[8px] bg-[#b8f34a] text-[#13210d] hover:bg-[#cbff67]">
-                      {isConnectingWallet ? <CircleNotchIcon className="size-4 animate-spin" aria-hidden="true" /> : <WalletIcon className="size-4" weight="bold" aria-hidden="true" />}
-                      Create wallet
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" disabled={isConnectingWallet || isSubmitting || isSettling} onClick={() => connectWallet("connect")} className="rounded-[8px] border-white/15 bg-transparent text-[#edf4ee] hover:bg-white/[0.06] hover:text-white">Use existing</Button>
-                  </div>
-                )}
-
-                {walletError && <p role="alert" className="mt-3 text-sm leading-6 text-[#f5c77c]">{walletError}</p>}
-              </div>
-
+            <div className="mt-7 space-y-6">
               {sender && (
                 <APassSetup
                   state={apassSetup}
@@ -729,13 +827,21 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
                   disabled={isSubmitting || isSettling || serviceState !== "ready"}
                   onProfileChange={setAPassProfile}
                   onCreate={() => void createDemoAPass()}
-                  onUseExisting={useExistingAPass}
+                  onCheckStatus={() => void checkDemoAPassStatus()}
+                  onUseExisting={() => void checkDemoAPassStatus()}
                   onReset={resetAPassSetup}
                 />
               )}
 
+              {sender && (
+                <WalletAssetSelect
+                  balance={balance}
+                  disabled={isSubmitting || isSettling}
+                />
+              )}
+
               <div className={!canEnterTransfer ? "pointer-events-none opacity-45" : undefined} aria-disabled={!canEnterTransfer}>
-                <div className="space-y-5">
+                <div className="grid gap-5 md:grid-cols-2">
                   <Field label="Recipient wallet" value={recipient} onChange={changeRecipient} placeholder="0x..." helpText="The recipient must already have an active A-Pass." disabled={!canEnterTransfer || isSubmitting || isSettling} />
                   <Field label="Amount" value={amount} onChange={changeAmount} placeholder="0.00" helpText="Positive amount, up to 18 decimal places." inputMode="decimal" disabled={!canEnterTransfer || isSubmitting || isSettling} />
                 </div>
@@ -744,7 +850,7 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
               {!canEnterTransfer && (
                 <div className="flex items-center gap-2.5 rounded-[9px] border border-white/[0.08] bg-[#07100c]/60 px-3.5 py-3 text-xs leading-5 text-[#7e9183]">
                   <LockKeyIcon className="size-4 shrink-0" aria-hidden="true" />
-                  {sender ? "Complete A-Pass setup to unlock the transfer intent." : "Connect a sender wallet to begin."}
+                  Complete A-Pass setup to unlock the transfer intent.
                 </div>
               )}
             </div>
@@ -773,6 +879,135 @@ function TransferWorkspace({ onBack }: { onBack: () => void }) {
         </div>
       </main>
     </div>
+  )
+}
+
+function WalletAssetSelect({ balance, disabled }: { balance: BalanceState; disabled: boolean }) {
+  const trwaBalance = balance.status === "ready"
+    ? balance.trwaFormatted === undefined
+      ? "Balance unavailable"
+      : `${balance.trwaFormatted} TRWA available`
+    : balance.status === "loading"
+      ? "Loading balance"
+      : balance.status === "error"
+        ? "Balance unavailable"
+        : "Waiting for wallet"
+  const monBalance = balance.status === "ready"
+    ? `${balance.nativeFormatted} MON available`
+    : balance.status === "loading"
+      ? "Loading balance"
+      : "Balance unavailable"
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-end justify-between gap-4">
+        <Label htmlFor="transfer-asset" className="text-sm text-[#b7c4ba]">Transfer asset</Label>
+        <span className="font-mono text-[10px] text-[#718376]">{trwaBalance}</span>
+      </div>
+      <Select value="trwa" disabled={disabled}>
+        <SelectTrigger
+          id="transfer-asset"
+          aria-label="Transfer asset"
+          className="h-12 w-full rounded-[9px] border-white/[0.12] bg-[#07100c]/70 px-3.5 text-[#edf4ee] hover:bg-white/[0.04] focus-visible:border-[#b8f34a]/50 focus-visible:ring-[#b8f34a]/15"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="grid size-7 shrink-0 place-items-center rounded-[7px] bg-[#b8f34a]/10 font-mono text-[10px] font-semibold text-[#b8f34a]">T</span>
+            <span className="min-w-0 text-left">
+              <span className="block text-sm font-medium">TRWA</span>
+              <span className="block truncate text-[10px] text-[#718376]">Compliance-enabled token</span>
+            </span>
+          </span>
+        </SelectTrigger>
+        <SelectContent position="popper" align="start" className="border border-white/[0.12] bg-[#0a1510] text-[#edf4ee] shadow-[0_18px_55px_rgba(2,8,5,0.42)]">
+          <SelectGroup>
+            <SelectLabel className="px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[#718376]">Wallet assets</SelectLabel>
+            <SelectItem value="trwa" className="py-2.5 focus:bg-white/[0.07] focus:text-[#edf4ee]">
+              <span className="flex min-w-0 flex-col items-start">
+                <span className="font-medium">TRWA</span>
+                <span className="text-[10px] text-[#718376]">{trwaBalance}</span>
+              </span>
+            </SelectItem>
+            <SelectItem value="mon" disabled className="py-2.5">
+              <span className="flex min-w-0 flex-col items-start">
+                <span className="font-medium">MON</span>
+                <span className="text-[10px] text-[#718376]">{monBalance}, gas only</span>
+              </span>
+            </SelectItem>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      <p className="text-xs leading-5 text-[#7e9183]">Only compliance-enabled assets can be selected for transfer.</p>
+    </div>
+  )
+}
+
+function WalletEntryDialog({
+  open,
+  externalWalletEnabled,
+  connectingWallet,
+  error,
+  onConnect,
+  onBack,
+}: {
+  open: boolean
+  externalWalletEnabled: boolean
+  connectingWallet: WalletConnectMode | null
+  error: string | null
+  onConnect: (mode: WalletConnectMode) => void
+  onBack: () => void
+}) {
+  const busy = connectingWallet !== null
+
+  return (
+    <DialogPrimitive.Root open={open}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-[#020805]/85 backdrop-blur-md data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-white/[0.12] bg-[#0a1510] p-5 shadow-[0_30px_100px_rgba(0,0,0,0.55)] outline-none sm:p-7 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          <div className="flex items-center gap-3">
+            <BrandMark />
+            <span className="font-semibold tracking-[-0.02em] text-[#edf4ee]">CleanGraph</span>
+          </div>
+
+          <DialogPrimitive.Title className="mt-7 text-2xl font-medium tracking-[-0.04em] text-[#f3f8f3] sm:text-3xl">
+            Choose the sender wallet
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Description className="mt-3 max-w-md text-sm leading-6 text-[#9cad9f]">
+            The wallet you connect here becomes the sender for A-Pass verification and settlement.
+          </DialogPrimitive.Description>
+
+          <div className="mt-7 grid gap-3">
+            <Button type="button" size="lg" onClick={() => onConnect("create")} disabled={busy} className="h-auto w-full justify-start overflow-hidden whitespace-normal rounded-[10px] bg-[#b8f34a] px-4 py-3.5 text-left text-[#13210d] hover:bg-[#cbff67] active:translate-y-px">
+              {connectingWallet === "create" ? <CircleNotchIcon className="size-5 animate-spin" aria-hidden="true" /> : <FingerprintIcon className="size-5" weight="bold" aria-hidden="true" />}
+              <span className="min-w-0"><span className="block font-semibold">Create passkey</span><span className="mt-0.5 block whitespace-normal text-xs font-normal leading-5 text-[#354824]">Make a new Mera wallet on this device.</span></span>
+            </Button>
+
+            <Button type="button" variant="outline" size="lg" onClick={() => onConnect("connect")} disabled={busy} className="h-auto w-full justify-start overflow-hidden whitespace-normal rounded-[10px] border-white/[0.13] bg-white/[0.025] px-4 py-3.5 text-left text-[#edf4ee] hover:bg-white/[0.06] hover:text-white active:translate-y-px">
+              {connectingWallet === "connect" ? <CircleNotchIcon className="size-5 animate-spin" aria-hidden="true" /> : <FingerprintIcon className="size-5 text-[#b8f34a]" aria-hidden="true" />}
+              <span className="min-w-0"><span className="block font-semibold">Use passkey</span><span className="mt-0.5 block whitespace-normal text-xs font-normal leading-5 text-[#87998b]">Reconnect a Mera wallet already on this device.</span></span>
+            </Button>
+
+            <Button type="button" variant="outline" size="lg" onClick={() => onConnect("external")} disabled={busy || !externalWalletEnabled} className="h-auto w-full justify-start overflow-hidden whitespace-normal rounded-[10px] border-white/[0.13] bg-white/[0.025] px-4 py-3.5 text-left text-[#edf4ee] hover:bg-white/[0.06] hover:text-white active:translate-y-px">
+              {connectingWallet === "external" ? <CircleNotchIcon className="size-5 animate-spin" aria-hidden="true" /> : <WalletIcon className="size-5 text-[#b8f34a]" weight="bold" aria-hidden="true" />}
+              <span className="min-w-0"><span className="block font-semibold">Connect wallet</span><span className="mt-0.5 block whitespace-normal text-xs font-normal leading-5 text-[#87998b]">Use MetaMask, Coinbase Wallet, Rainbow or WalletConnect.</span></span>
+            </Button>
+          </div>
+
+          {!externalWalletEnabled && (
+            <p className="mt-3 text-xs leading-5 text-[#718376]">External wallets require VITE_PRIVY_APP_ID.</p>
+          )}
+          {error && <p role="alert" className="mt-4 rounded-[9px] border border-[#f2bd68]/25 bg-[#f2bd68]/[0.07] px-3.5 py-3 text-sm leading-6 text-[#f5c77c]">{error}</p>}
+
+          <button type="button" onClick={onBack} disabled={busy} className="mt-6 inline-flex items-center gap-2 text-sm text-[#9cad9f] transition-colors hover:text-[#edf4ee] disabled:opacity-50">
+            <ArrowLeftIcon className="size-4" aria-hidden="true" />
+            Back to overview
+          </button>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -819,6 +1054,7 @@ function APassSetup({
   disabled,
   onProfileChange,
   onCreate,
+  onCheckStatus,
   onUseExisting,
   onReset,
 }: {
@@ -828,15 +1064,17 @@ function APassSetup({
   disabled: boolean
   onProfileChange: (profile: DemoAPassProfile) => void
   onCreate: () => void
+  onCheckStatus: () => void
   onUseExisting: () => void
   onReset: () => void
 }) {
   const busyStatus = isAPassBusyStatus(state.status) ? state.status : undefined
   const isBusy = busyStatus !== undefined
   const isReady = state.status === "active" || state.status === "existing"
+  const creationPaused = state.status === "error" && state.code === "RATE_LIMITED"
 
   return (
-    <section className={`rounded-[12px] border p-4 ${isReady ? "border-[#b8f34a]/25 bg-[#b8f34a]/[0.055]" : state.status === "error" ? "border-[#f2bd68]/25 bg-[#f2bd68]/[0.045]" : "border-white/[0.09] bg-white/[0.025]"}`} aria-labelledby="apass-heading">
+    <section className={`rounded-[12px] border p-4 ${isReady ? "border-[#b8f34a]/25 bg-[#b8f34a]/[0.055]" : state.status === "error" || state.status === "pending" ? "border-[#f2bd68]/25 bg-[#f2bd68]/[0.045]" : "border-white/[0.09] bg-white/[0.025]"}`} aria-labelledby="apass-heading">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -845,8 +1083,8 @@ function APassSetup({
           </div>
           <p className="mt-1.5 text-xs leading-5 text-[#87998b]">Identity credential checked again during preflight.</p>
         </div>
-        <span className={`rounded-[7px] border px-2 py-1 font-mono text-[9px] font-semibold tracking-[0.08em] ${isReady ? "border-[#b8f34a]/25 bg-[#b8f34a]/[0.08] text-[#b8f34a]" : isBusy ? "border-white/[0.1] bg-white/[0.04] text-[#b7c4ba]" : "border-white/[0.09] bg-white/[0.025] text-[#718376]"}`}>
-          {isReady ? "READY" : isBusy ? "IN PROGRESS" : "REQUIRED"}
+        <span className={`rounded-[7px] border px-2 py-1 font-mono text-[9px] font-semibold tracking-[0.08em] ${isReady ? "border-[#b8f34a]/25 bg-[#b8f34a]/[0.08] text-[#b8f34a]" : state.status === "pending" ? "border-[#f2bd68]/25 bg-[#f2bd68]/[0.08] text-[#f5c77c]" : isBusy ? "border-white/[0.1] bg-white/[0.04] text-[#b7c4ba]" : "border-white/[0.09] bg-white/[0.025] text-[#718376]"}`}>
+          {isReady ? "READY" : state.status === "pending" ? "PENDING" : isBusy ? "IN PROGRESS" : "REQUIRED"}
         </span>
       </div>
 
@@ -879,18 +1117,21 @@ function APassSetup({
               <WarningCircleIcon className="mt-0.5 size-4 shrink-0" weight="fill" aria-hidden="true" />
               <div>
                 <p>{state.message}</p>
+                {state.retryAfterSeconds && (
+                  <p className="mt-1 text-[#d8a962]">Try again in about {Math.max(1, Math.ceil(state.retryAfterSeconds / 60))} minute{state.retryAfterSeconds > 60 ? "s" : ""}.</p>
+                )}
                 {state.requestId && <p className="mt-1 font-mono text-[10px] text-[#c69e61]">Request ID: {state.requestId}</p>}
               </div>
             </div>
           )}
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            <Button type="button" size="sm" onClick={onCreate} disabled={disabled || isBusy} className="rounded-[8px] bg-[#b8f34a] text-[#13210d] hover:bg-[#cbff67]">
+            <Button type="button" size="sm" onClick={onCreate} disabled={disabled || isBusy || creationPaused} className="rounded-[8px] bg-[#b8f34a] text-[#13210d] hover:bg-[#cbff67]">
               <FingerprintIcon className="size-4" weight="bold" aria-hidden="true" />
-              Create demo A-Pass
+              {creationPaused ? "Creation paused" : "Create demo A-Pass"}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={onUseExisting} disabled={disabled || isBusy} className="rounded-[8px] border-white/15 bg-transparent text-[#edf4ee] hover:bg-white/[0.06] hover:text-white">
-              Use existing A-Pass
+              Verify existing A-Pass
             </Button>
           </div>
         </div>
@@ -906,16 +1147,42 @@ function APassSetup({
         </div>
       )}
 
+      {state.status === "pending" && (
+        <div className="mt-4 flex items-start gap-3">
+          <CircleNotchIcon className="mt-0.5 size-5 shrink-0 text-[#f2bd68]" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-[#edf4ee]">{state.enrollment.status === "CREATING" ? "A-Pass creation is starting." : "A-Pass registration is pending."}</p>
+            <p className="mt-1 text-xs leading-5 text-[#9cad9f]">{state.enrollment.status === "CREATING" ? "The backend claimed the issuance attempt and is preparing the Cleanverse request." : "Cleanverse accepted the request. Check again after Monad has had time to confirm it."}</p>
+            {state.enrollment.registrationTransactionHash && (
+              <p className="mt-2 break-all font-mono text-[10px] text-[#718376]">{state.enrollment.registrationTransactionHash}</p>
+            )}
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <Button type="button" size="sm" onClick={onCheckStatus} disabled={disabled} className="rounded-[8px] bg-[#b8f34a] text-[#13210d] hover:bg-[#cbff67]">
+                <FingerprintIcon className="size-4" weight="bold" aria-hidden="true" />
+                Check activation
+              </Button>
+              {explorerUrl && state.enrollment.registrationTransactionHash && (
+                <a href={getExplorerTransactionUrl(explorerUrl, state.enrollment.registrationTransactionHash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-[#f5c77c] hover:text-[#f9d79f]">
+                  View registration
+                  <ArrowSquareOutIcon className="size-3.5" aria-hidden="true" />
+                </a>
+              )}
+            </div>
+            <p className="mt-3 text-[11px] leading-5 text-[#7e9183]">Status checks require a fresh wallet signature to protect wallet privacy.</p>
+          </div>
+        </div>
+      )}
+
       {state.status === "active" && (
         <div className="mt-4 flex items-start gap-3">
           <CheckCircleIcon className="mt-0.5 size-5 shrink-0 text-[#b8f34a]" weight="fill" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-[#edf4ee]">Demo A-Pass is active.</p>
             <p className="mt-1 text-xs leading-5 text-[#9cad9f]">This sender can now move to the compliance preflight.</p>
-            <p className="mt-2 break-all font-mono text-[10px] text-[#718376]">{state.enrollment.transactionHash}</p>
+            {state.enrollment.registrationTransactionHash && <p className="mt-2 break-all font-mono text-[10px] text-[#718376]">{state.enrollment.registrationTransactionHash}</p>}
             <div className="mt-3 flex flex-wrap items-center gap-4">
-              {explorerUrl && (
-                <a href={getExplorerTransactionUrl(explorerUrl, state.enrollment.transactionHash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-[#b8f34a] hover:text-[#cbff67]">
+              {explorerUrl && state.enrollment.registrationTransactionHash && (
+                <a href={getExplorerTransactionUrl(explorerUrl, state.enrollment.registrationTransactionHash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-[#b8f34a] hover:text-[#cbff67]">
                   View registration
                   <ArrowSquareOutIcon className="size-3.5" aria-hidden="true" />
                 </a>
@@ -930,9 +1197,9 @@ function APassSetup({
         <div className="mt-4 flex items-start gap-3">
           <CheckCircleIcon className="mt-0.5 size-5 shrink-0 text-[#b8f34a]" weight="fill" aria-hidden="true" />
           <div>
-            <p className="text-sm font-medium text-[#edf4ee]">Existing A-Pass selected.</p>
-            <p className="mt-1 text-xs leading-5 text-[#9cad9f]">Preflight will ask Cleanverse to verify it before signing is unlocked.</p>
-            <button type="button" onClick={onReset} className="mt-3 text-xs font-medium text-[#9cad9f] hover:text-[#edf4ee]">Create a demo A-Pass instead</button>
+            <p className="text-sm font-medium text-[#edf4ee]">Cleanverse verified this existing A-Pass.</p>
+            <p className="mt-1 text-xs leading-5 text-[#9cad9f]">Preflight will ask Cleanverse to verify its current eligibility before signing is unlocked.</p>
+            <button type="button" onClick={onReset} className="mt-3 text-xs font-medium text-[#9cad9f] hover:text-[#edf4ee]">Change A-Pass setup</button>
           </div>
         </div>
       )}
@@ -962,7 +1229,7 @@ function Field({ label, value, onChange, placeholder, helpText, inputMode, disab
 }
 
 function isAPassBusyStatus(status: APassSetupState["status"]): status is APassBusyStatus {
-  return status === "requesting" || status === "authorizing" || status === "issuing" || status === "pending"
+  return status === "requesting" || status === "authorizing" || status === "issuing" || status === "status-requesting" || status === "status-authorizing" || status === "status-checking"
 }
 
 function apassPhaseTitle(status: APassBusyStatus): string {
@@ -970,11 +1237,15 @@ function apassPhaseTitle(status: APassBusyStatus): string {
     case "requesting":
       return "Preparing wallet challenge"
     case "authorizing":
-      return "Confirm your passkey"
+      return "Confirm your wallet"
     case "issuing":
       return "Registering the A-Pass"
-    case "pending":
-      return "Waiting for Monad"
+    case "status-requesting":
+      return "Preparing status challenge"
+    case "status-authorizing":
+      return "Confirm the status check"
+    case "status-checking":
+      return "Checking A-Pass activation"
   }
 }
 
@@ -986,8 +1257,12 @@ function apassPhaseCopy(status: APassBusyStatus): string {
       return "Sign the challenge to prove that you control this wallet."
     case "issuing":
       return "The API is sending the selected fictional profile to Cleanverse."
-    case "pending":
-      return "Registration was submitted and is waiting for confirmation."
+    case "status-requesting":
+      return "CleanGraph is requesting a fresh privacy-preserving status challenge."
+    case "status-authorizing":
+      return "Sign the challenge to prove this wallet requested the status check."
+    case "status-checking":
+      return "The API is checking the latest registration state with Cleanverse."
   }
 }
 
@@ -1003,35 +1278,35 @@ function ComplianceTerminal({ checks, result, status, settlement }: { checks: Co
   ] as const
 
   return (
-    <section aria-live="polite" className="flex min-h-[46rem] flex-col bg-[#08110d]">
-      <div className="flex items-center justify-between gap-4 border-b border-white/[0.09] px-5 py-5 sm:px-7">
+    <section aria-live="polite" className="overflow-hidden rounded-[14px] border border-white/[0.09] bg-[#08110d] lg:sticky lg:top-6">
+      <div className="flex items-center justify-between gap-3 border-b border-white/[0.09] px-4 py-4">
         <div>
-          <h2 className="font-mono text-xs font-semibold tracking-[0.08em] text-[#b8f34a]">DECISION TRACE</h2>
-          <p className="mt-1.5 text-sm text-[#7e9183]">Cleanverse compliance sequence</p>
+          <h2 className="text-sm font-medium text-[#edf4ee]">Decision trace</h2>
+          <p className="mt-1 text-xs text-[#718376]">Three compliance checks</p>
         </div>
         <span className={`rounded-[8px] border px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.08em] ${status === "APPROVED" ? "border-[#b8f34a]/30 bg-[#b8f34a]/[0.08] text-[#b8f34a]" : status === "DENIED" || status === "ERROR" ? "border-[#f2bd68]/30 bg-[#f2bd68]/[0.08] text-[#f5c77c]" : "border-white/[0.1] bg-white/[0.035] text-[#9cad9f]"}`}>{status}</span>
       </div>
 
-      <div className="flex-1">
-        {terminalItems.map(({ id, label }, index) => {
+      <div className="divide-y divide-white/[0.075]">
+        {terminalItems.map(({ id, label }) => {
           const check = checks.find((item) => item.id === id)
           const isDenied = check?.status === "denied"
           const isApproved = check?.status === "approved"
           const Icon = isDenied ? WarningCircleIcon : isApproved ? CheckCircleIcon : CircleNotchIcon
 
           return (
-            <div key={id} className="border-b border-white/[0.075] px-5 py-6 sm:px-7 sm:py-7">
-              <div className="flex gap-4">
-                <span className={`grid size-10 shrink-0 place-items-center rounded-[11px] border ${isApproved ? "border-[#b8f34a]/25 bg-[#b8f34a]/[0.08] text-[#b8f34a]" : isDenied ? "border-[#f2bd68]/25 bg-[#f2bd68]/[0.08] text-[#f5c77c]" : "border-white/[0.09] bg-white/[0.03] text-[#607265]"}`}>
-                  <Icon className="size-5" weight={isDenied || isApproved ? "fill" : "regular"} aria-hidden="true" />
+            <div key={id} className="px-4 py-4">
+              <div className="flex gap-3">
+                <span className={`grid size-8 shrink-0 place-items-center rounded-[9px] border ${isApproved ? "border-[#b8f34a]/25 bg-[#b8f34a]/[0.08] text-[#b8f34a]" : isDenied ? "border-[#f2bd68]/25 bg-[#f2bd68]/[0.08] text-[#f5c77c]" : "border-white/[0.09] bg-white/[0.03] text-[#607265]"}`}>
+                  <Icon className="size-4" weight={isDenied || isApproved ? "fill" : "regular"} aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-medium text-[#edf4ee]"><span className="mr-2 font-mono text-[10px] text-[#607265]">0{index + 1}</span>{label}</h3>
+                    <h3 className="text-xs font-medium text-[#edf4ee]">{label}</h3>
                     <span className={`font-mono text-[10px] font-semibold tracking-[0.05em] ${isApproved ? "text-[#b8f34a]" : isDenied ? "text-[#f5c77c]" : "text-[#607265]"}`}>{check ? check.status.toUpperCase() : "QUEUED"}</span>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[#9cad9f]">{check?.message ?? "Waiting for a transfer intent."}</p>
-                  {check && <p className="mt-2 font-mono text-xs text-[#7e9183]">{check.code} {new Date(check.checkedAt).toLocaleTimeString()}</p>}
+                  <p className="mt-1.5 text-xs leading-5 text-[#87998b]">{check?.message ?? "Waiting for a transfer intent."}</p>
+                  {check && <p className="mt-1.5 font-mono text-[10px] text-[#607265]">{check.code} {new Date(check.checkedAt).toLocaleTimeString()}</p>}
                 </div>
               </div>
             </div>
@@ -1039,7 +1314,7 @@ function ComplianceTerminal({ checks, result, status, settlement }: { checks: Co
         })}
       </div>
 
-      <div className="border-t border-white/[0.09] bg-white/[0.02] px-5 py-5 sm:px-7">
+      <div className="border-t border-white/[0.09] bg-white/[0.02] px-4 py-4">
         {isPreflightError(result) ? (
           <div className="flex gap-3 text-sm leading-6 text-[#f5c77c]">
             <WarningCircleIcon className="mt-0.5 size-5 shrink-0" weight="fill" aria-hidden="true" />
@@ -1059,7 +1334,7 @@ function ComplianceTerminal({ checks, result, status, settlement }: { checks: Co
       </div>
 
       {settlement.status !== "idle" && (
-        <div className={`border-t px-5 py-5 sm:px-7 ${settlement.status === "confirmed" ? "border-[#b8f34a]/20 bg-[#b8f34a]/[0.06]" : settlement.status === "error" ? "border-[#f2bd68]/20 bg-[#f2bd68]/[0.06]" : "border-white/[0.09] bg-white/[0.025]"}`}>
+        <div className={`border-t px-4 py-4 ${settlement.status === "confirmed" ? "border-[#b8f34a]/20 bg-[#b8f34a]/[0.06]" : settlement.status === "error" ? "border-[#f2bd68]/20 bg-[#f2bd68]/[0.06]" : "border-white/[0.09] bg-white/[0.025]"}`}>
           {settlement.status === "confirmed" ? (
             <div className="flex items-start gap-3 text-sm leading-6">
               <CheckCircleIcon className="mt-0.5 size-5 shrink-0 text-[#b8f34a]" weight="fill" aria-hidden="true" />
@@ -1099,7 +1374,7 @@ function isPreflightError(result: WorkspacePreflightResult | null): result is Cl
 function settlementButtonLabel(settlement: SettlementState): string {
   switch (settlement.status) {
     case "authorizing":
-      return "Authorize passkey"
+      return "Authorize wallet"
     case "simulating":
       return "Simulating transfer"
     case "signing":
@@ -1114,7 +1389,7 @@ function settlementButtonLabel(settlement: SettlementState): string {
 function settlementPhaseMessage(status: TransferPhase): string {
   switch (status) {
     case "authorizing":
-      return "Authorize the sender passkey to continue."
+      return "Authorize the sender wallet to continue."
     case "simulating":
       return "Checking the TRWA contract call before submission."
     case "signing":

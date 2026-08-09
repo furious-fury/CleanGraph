@@ -239,10 +239,10 @@ export class PostgresDemoAPassStore implements DemoAPassStore {
     const result = await this.#pool.query(
       `UPDATE demo_apass_onboardings
        SET state = 'CREATING', attempt_count = attempt_count + 1,
-           last_error_kind = NULL, updated_at = $2
+         last_error_kind = NULL, updated_at = $2
        WHERE id = $1 AND (
          state = 'RETRY_REQUIRED' OR
-         (state = 'CREATING' AND updated_at < $2 - interval '5 minutes')
+         (state = 'CREATING' AND updated_at < $2::timestamptz - interval '5 minutes')
        )
        RETURNING *`,
       [id, now],

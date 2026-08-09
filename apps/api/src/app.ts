@@ -248,6 +248,12 @@ function logDemoAPassFailure(failure: DemoAPassFailureLog): void {
       code: failure.code,
       requestId: failure.requestId,
       status: failure.status,
+      ...(failure.upstreamCode === undefined
+        ? {}
+        : { upstreamCode: failure.upstreamCode }),
+      ...(failure.causeCode === undefined
+        ? {}
+        : { causeCode: failure.causeCode }),
     }),
   );
 }

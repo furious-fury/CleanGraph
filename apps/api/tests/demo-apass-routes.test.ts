@@ -237,6 +237,81 @@ describe("demo A-Pass HTTP routes", () => {
     });
   });
 
+  it("keeps a known service rejection when the error crosses a module boundary", async () => {
+    const demoService = service();
+    const logFailure = vi.fn();
+    const boundaryError = Object.assign(
+      new Error("Cleanverse rejected the demo A-Pass request with business code 1000."),
+      {
+        name: "DemoAPassServiceError",
+        code: "CLEANVERSE_REJECTED",
+        status: 502,
+        upstreamCode: "1000",
+      },
+    );
+    vi.mocked(demoService.createAPass).mockRejectedValue(boundaryError);
+    const app = createApp({
+      environment: baseEnvironment,
+      preflightService: null,
+      evidenceService: null,
+      demoEnabled: true,
+      demoAPassService: demoService,
+      demoClientIpHeader: "X-Forwarded-For",
+      logDemoAPassFailure: logFailure,
+    });
+
+    const response = await request(
+      "/api/v1/demo/apasses",
+      { walletAddress: wallet, profile: "ELIGIBLE_GB", challengeId, signature },
+      app,
+    );
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({
+      error: { code: "CLEANVERSE_REJECTED" },
+    });
+    expect(logFailure).toHaveBeenCalledWith(
+      expect.objectContaining({ upstreamCode: "1000" }),
+    );
+  });
+
+  it("returns a safe database-unavailable response for PostgreSQL connection failures", async () => {
+    const demoService = service();
+    const logFailure = vi.fn();
+    vi.mocked(demoService.createAPass).mockRejectedValue(
+      Object.assign(new Error("sensitive database detail"), { code: "ETIMEDOUT" }),
+    );
+    const app = createApp({
+      environment: baseEnvironment,
+      preflightService: null,
+      evidenceService: null,
+      demoEnabled: true,
+      demoAPassService: demoService,
+      demoClientIpHeader: "X-Forwarded-For",
+      logDemoAPassFailure: logFailure,
+    });
+
+    const response = await request(
+      "/api/v1/demo/apasses",
+      { walletAddress: wallet, profile: "ELIGIBLE_GB", challengeId, signature },
+      app,
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: {
+        code: "DATABASE_UNAVAILABLE",
+        message: "The demo A-Pass database is temporarily unavailable.",
+      },
+    });
+    expect(logFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "DATABASE_UNAVAILABLE",
+        causeCode: "ETIMEDOUT",
+      }),
+    );
+  });
+
   it("uses a fresh signed request for status", async () => {
     const demoService = service();
     const response = await request(

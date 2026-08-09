@@ -11,6 +11,10 @@ const runner = readFileSync(
   fileURLToPath(new URL("../src/commands/migrate.ts", import.meta.url)),
   "utf8",
 );
+const store = readFileSync(
+  fileURLToPath(new URL("../src/db/demo-apass-store.ts", import.meta.url)),
+  "utf8",
+);
 
 describe("demo A-Pass PostgreSQL migration", () => {
   it("discovers, locks, checksums, and transactionally tracks migrations", () => {
@@ -54,5 +58,11 @@ describe("demo A-Pass PostgreSQL migration", () => {
       "state IN (\n    'CREATING',\n    'PENDING',\n    'ACTIVE',\n    'RETRY_REQUIRED'",
     );
     expect(migration).toContain("purpose IN ('CREATE', 'STATUS')");
+  });
+
+  it("casts retry timestamps before subtracting the stale-attempt interval", () => {
+    expect(store).toContain(
+      "$2::timestamptz - interval '5 minutes'",
+    );
   });
 });

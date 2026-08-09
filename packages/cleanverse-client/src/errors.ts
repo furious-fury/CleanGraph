@@ -126,6 +126,17 @@ export class CleanverseBusinessError extends CleanverseError {
   }
 }
 
+export const CLEANVERSE_APASS_MISSING_CODE = "0002";
+
+export function isCleanverseAPassMissingError(
+  error: unknown,
+): error is CleanverseBusinessError {
+  return (
+    error instanceof CleanverseBusinessError &&
+    error.cleanverseCode === CLEANVERSE_APASS_MISSING_CODE
+  );
+}
+
 export class CleanversePollingExhaustedError extends CleanverseError {
   constructor(requestId: string, applicationStatus: string) {
     super(

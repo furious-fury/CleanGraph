@@ -8,6 +8,7 @@ import {
 import {
   createPublicClient,
   createWalletClient,
+  custom,
   http,
   type Account,
   type Address,
@@ -16,6 +17,11 @@ import {
 import { isMeraError } from "@category-labs/mera"
 
 import type { FrontendConfig } from "@/lib/config"
+import {
+  ExternalWalletIdentityMismatchError,
+  getExternalWalletErrorMessage,
+  type ExternalEvmWallet,
+} from "@/lib/wallet"
 import {
   authorizeMeraSigning,
   getMeraErrorMessage,
@@ -37,16 +43,20 @@ export type ConfirmedTransfer = {
 export type TransferPhase = "authorizing" | "simulating" | "signing" | "confirming"
 
 type TransferPipelineDependencies = {
-  authorizeAccount(expectedAddress: Address): Promise<Account>
+  authorizeAccount(expectedAddress: Address): Promise<Account | Address>
   getChainId(): Promise<number>
   simulate(input: {
-    account: Account
+    account: Account | Address
     recipient: Address
     amount: bigint
   }): Promise<unknown>
   write(simulation: unknown): Promise<Hash>
   confirm(hash: Hash): Promise<{ blockNumber?: bigint }>
 }
+
+export type TransferWallet =
+  | { kind: "mera" }
+  | { kind: "external"; wallet: ExternalEvmWallet }
 
 export class WrongMonadNetworkError extends Error {
   constructor(actualChainId: number, expectedChainId: number) {
@@ -91,6 +101,7 @@ export async function runTransferPipeline(
 export async function executeApprovedTransfer(
   config: FrontendConfig,
   transfer: ApprovedTransfer,
+  transferWallet: TransferWallet,
   onPhase?: (phase: TransferPhase, transactionHash?: Hash) => void,
 ): Promise<ConfirmedTransfer> {
   const chain = createMonadChain({
@@ -101,12 +112,30 @@ export async function executeApprovedTransfer(
   })
   const transport = http(config.rpcUrl)
   const publicClient = createPublicClient({ chain, transport })
-  let authorizedAccount: Account | undefined
+  type TransferRequest = Awaited<ReturnType<typeof simulateTrwaTransfer>>["request"]
+  let writeAuthorizedContract: ((request: TransferRequest) => Promise<Hash>) | undefined
 
   return runTransferPipeline(config, transfer, {
     async authorizeAccount(expectedAddress) {
-      authorizedAccount = await authorizeMeraSigning(expectedAddress)
-      return authorizedAccount
+      if (transferWallet.kind === "mera") {
+        const authorizedAccount = await authorizeMeraSigning(expectedAddress)
+        const walletClient = createWalletClient({
+          account: authorizedAccount,
+          chain,
+          transport,
+        })
+        writeAuthorizedContract = (request) => walletClient.writeContract(request)
+        return authorizedAccount
+      }
+
+      const provider = await transferWallet.wallet.prepareProvider(expectedAddress, config.chainId)
+      const walletClient = createWalletClient({
+        account: transferWallet.wallet.address,
+        chain,
+        transport: custom(provider),
+      })
+      writeAuthorizedContract = (request) => walletClient.writeContract(request)
+      return transferWallet.wallet.address
     },
     getChainId: () => publicClient.getChainId(),
     async simulate({ account, recipient, amount }) {
@@ -118,17 +147,11 @@ export async function executeApprovedTransfer(
       })
     },
     async write(simulation) {
-      if (authorizedAccount === undefined) {
+      if (writeAuthorizedContract === undefined) {
         throw new Error("The wallet was not authorized for signing.")
       }
-
-      const walletClient = createWalletClient({
-        account: authorizedAccount,
-        chain,
-        transport,
-      })
       const request = (simulation as Awaited<ReturnType<typeof simulateTrwaTransfer>>).request
-      return walletClient.writeContract(request)
+      return writeAuthorizedContract(request)
     },
     confirm: (hash) => confirmTrwaTransfer(publicClient, hash),
   }, onPhase)
@@ -136,6 +159,9 @@ export async function executeApprovedTransfer(
 
 export function getTransferErrorMessage(error: unknown): string {
   if (error instanceof WrongMonadNetworkError) return error.message
+  if (error instanceof ExternalWalletIdentityMismatchError) {
+    return getExternalWalletErrorMessage(error)
+  }
   if (error instanceof WalletIdentityMismatchError || isMeraError(error)) {
     return getMeraErrorMessage(error)
   }
