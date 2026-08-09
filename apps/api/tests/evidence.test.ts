@@ -82,7 +82,8 @@ describe("protected transaction evidence route", () => {
       environment: {
         NODE_ENV: "test",
         PORT: 3000,
-        API_CORS_ORIGIN: "http://localhost:5173",
+        FRONTEND_URL: "http://localhost:5173",
+        DEMO_MODE: false,
         CLEANVERSE_TIMEOUT_MS: 10_000,
         OPERATOR_TOKEN: token,
       },

@@ -26,7 +26,8 @@ const checkedAt = "2026-07-31T12:00:00.000Z";
 const baseEnvironment: Environment = {
   NODE_ENV: "test",
   PORT: 3000,
-  API_CORS_ORIGIN: "http://localhost:5173",
+  FRONTEND_URL: "http://localhost:5173",
+  DEMO_MODE: false,
   CLEANVERSE_TIMEOUT_MS: 10_000,
 };
 

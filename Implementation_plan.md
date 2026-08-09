@@ -88,6 +88,10 @@ TRWA_ALLOWED_GROUP=
 TRWA_ALLOWED_SUBGROUP=
 TRWA_ALLOWED_COUNTRIES=US,GB,DE,SG
 OPERATOR_TOKEN=
+FRONTEND_URL=http://localhost:5173
+DEMO_MODE=false
+DATABASE_URL=
+DEMO_CLIENT_IP_HEADER=X-Forwarded-For
 ```
 
 `TRWA_TOKEN_ADDRESS` and `TRWA_ALLOWED_COUNTRIES` are required together. With
@@ -129,7 +133,7 @@ and public asset lifecycle schemas are removed. Requests to those paths return
 `404`. `OPERATOR_TOKEN` replaces `ASSET_OPERATOR_TOKEN` for the evidence route.
 Authentication still runs before its fixed-window rate limiter.
 
-## 6. Evidence behavior — implemented
+## 6. Evidence behavior â€” implemented
 
 Evidence accepts a confirmed Monad hash and wallet, performs at most three
 index queries, and requests a report only after indexing. Known report failures
@@ -140,8 +144,34 @@ Because TRWA is not registered with Cleanverse, indexing and report support are
 best-effort and may be unavailable. The application must not interpret report
 availability as transfer validity.
 
-## 7. Frontend integration — remaining
+## 7. Fictional demo A-Pass onboarding â€” implemented
 
+The API exposes wallet-authenticated challenge, creation, and status endpoints
+under /api/v1/demo. DEMO_MODE is disabled by default. FRONTEND_URL is the single
+source for both CORS and wallet-message origin binding.
+
+PostgreSQL persists one-time challenges, one onboarding row per normalized
+wallet, hashed rate-limit subjects, safe state, transaction hash, and retry
+timestamps. The db:migrate command applies all numbered migrations with an
+advisory lock, per-file transaction, and checksum tracking. The daily purge
+command removes retained demo records after 30 days.
+
+The backend generates fictional GB or BR identity data only in memory, calls
+generateAPass with override false and the incoming request ID, queries before
+retries, and exposes only CREATING, PENDING, ACTIVE, or ALREADY_EXISTS. This
+flow is UAT onboarding, not real KYC.
+
+## 8. Frontend integration â€” remaining
+
+Before transfer integration, implement the fictional onboarding screen:
+
+1. Label the GB/BR selector as fictional UAT rather than real KYC.
+2. Request and sign the exact CREATE challenge.
+3. Submit only wallet, profile, challenge ID, and signature.
+4. Poll with a fresh signed STATUS challenge.
+5. Render CREATING, PENDING, ACTIVE, and ALREADY_EXISTS.
+
+Then implement the transfer flow:
 1. Add `@cleangraph/shared` and `@cleangraph/contracts` to the web package.
 2. Load the public chain, explorer, and verified token address configuration.
 3. Connect a Monad-compatible external wallet; do not construct one in shared
@@ -153,16 +183,16 @@ availability as transfer validity.
 7. On denial, prove no wallet signature method is invoked.
 8. Render explorer and best-effort evidence/report states.
 
-## 8. Live demo data — remaining
+## 9. Live demo data â€” remaining
 
 - Wallet A: active, unexpired, configured group/subgroup, allowed country
 - Wallet B: active and otherwise matching, but country outside the allowlist
 - Treasury: holds initial fixed supply and funds the transfer scenario
 
-Create A-Passes through the trusted backend/client workflow. Store no raw
-identity documents or bank data in repository fixtures or logs.
+Create new demo A-Passes through the wallet-authenticated fictional onboarding
+flow. Store no raw identity documents or bank data in repository fixtures or logs.
 
-## 9. Verification strategy
+## 10. Verification strategy
 
 Completed automated coverage includes:
 
@@ -178,15 +208,16 @@ Remaining live checks are deployment verification, an approved transfer, a
 pre-signature denial, best-effort evidence, frontend end-to-end tests, secret
 scanning, and production smoke tests.
 
-## 10. Release sequence
+## 11. Release sequence
 
 1. Complete the deployment checkpoint and record public outputs.
 2. Configure the verified address in deployment settings.
-3. Implement frontend preflight and wallet settlement.
-4. Implement evidence UI and end-to-end hardening.
-5. Deploy the API and frontend, run smoke tests, and prepare the submission.
+3. Apply database migrations and configure the demo API deployment.
+4. Implement frontend onboarding, preflight, and wallet settlement.
+5. Implement evidence UI and end-to-end hardening.
+6. Deploy the API and frontend, run smoke tests, and prepare the submission.
 
-## 11. Main risks
+## 12. Main risks
 
 - Application bypass: direct ERC-20 calls skip preflight. Keep the limitation
   explicit and never describe TRWA as transfer-restricted.

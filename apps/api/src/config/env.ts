@@ -5,6 +5,16 @@ const optionalSecret = z.preprocess(
   z.string().min(1).optional(),
 );
 
+const optionalBooleanFlag = z.preprocess(
+  (value) =>
+    typeof value === "boolean"
+      ? String(value)
+      : typeof value === "string" && value.trim() === ""
+        ? undefined
+        : value,
+  z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+);
+
 const optionalOperatorToken = z.preprocess(
   (value) =>
     typeof value === "string" && value.trim() === ""
@@ -72,7 +82,7 @@ export const environmentSchema = z
       .enum(["development", "test", "production"])
       .default("development"),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-    API_CORS_ORIGIN: z
+    FRONTEND_URL: z
       .string()
       .url()
       .default("http://localhost:5173"),
@@ -82,6 +92,9 @@ export const environmentSchema = z
     CLEANVERSE_API_ID: optionalSecret,
     CLEANVERSE_API_KEY: optionalSecret,
     OPERATOR_TOKEN: optionalOperatorToken,
+    DEMO_MODE: optionalBooleanFlag,
+    DATABASE_URL: optionalSecret,
+    DEMO_CLIENT_IP_HEADER: z.string().trim().min(1).max(128).optional(),
     TRWA_TOKEN_ADDRESS: optionalTokenAddress,
     TRWA_ALLOWED_GROUP: optionalPolicyValue,
     TRWA_ALLOWED_SUBGROUP: optionalPolicyValue,
@@ -106,6 +119,21 @@ export const environmentSchema = z
             code: "custom",
             path: [name],
             message: "TRWA token address and country allowlist must be configured together",
+          });
+        }
+      }
+    }
+    if (environment.DEMO_MODE === true) {
+      for (const name of [
+        "DATABASE_URL",
+        "CLEANVERSE_API_ID",
+        "CLEANVERSE_API_KEY",
+      ] as const) {
+        if (environment[name] === undefined) {
+          context.addIssue({
+            code: "custom",
+            path: [name],
+            message: `${name} is required when DEMO_MODE=true`,
           });
         }
       }
@@ -170,6 +198,18 @@ export function getCleanverseTimeoutMs(
   environment = getEnvironment(),
 ): number {
   return Number(environment.CLEANVERSE_TIMEOUT_MS);
+}
+
+export function getFrontendUrl(
+  environment = getEnvironment(),
+): string {
+  return environment.FRONTEND_URL;
+}
+
+export function getDemoClientIpHeader(
+  environment = getEnvironment(),
+): string {
+  return environment.DEMO_CLIENT_IP_HEADER ?? "X-Forwarded-For";
 }
 
 export function resetEnvironmentForTests(): void {
