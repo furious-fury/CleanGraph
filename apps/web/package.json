@@ -8,10 +8,13 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "test": "vitest run",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
     "@category-labs/mera": "^0.1.0",
+    "@cleangraph/contracts": "workspace:*",
+    "@cleangraph/shared": "workspace:*",
     "@fontsource-variable/geist": "^5.3.0",
     "@phosphor-icons/react": "^2.1.10",
     "@scure/bip32": "^2.2.0",
@@ -37,6 +40,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
   }
 }

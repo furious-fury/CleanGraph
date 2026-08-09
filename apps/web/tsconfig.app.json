@@ -6,7 +6,9 @@
     "module": "esnext",
     "types": ["vite/client"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@cleangraph/contracts": ["../../packages/contracts/src/index.ts"],
+      "@cleangraph/shared": ["../../packages/shared/src/index.ts"]
     },
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,

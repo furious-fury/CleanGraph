@@ -10,6 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@cleangraph/contracts": path.resolve(__dirname, "../../packages/contracts/src/index.ts"),
+      "@cleangraph/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
     },
   },
 })

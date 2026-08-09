@@ -64,7 +64,7 @@ export function createApp(options: AppOptions = {}) {
   }
 
   app.use(
-    "/api/*",
+    "*",
     cors({
       origin: environment.API_CORS_ORIGIN,
       allowHeaders: ["Authorization", "Content-Type", "X-Request-ID"],

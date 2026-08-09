@@ -128,6 +128,27 @@ describe("CleanGraph API", () => {
     });
   });
 
+  it("allows the configured frontend origin to read readiness", async () => {
+    const { service } = createService({
+      kind: "failure",
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "An unexpected error occurred.",
+      },
+      checks: [],
+    });
+    const response = await createConfiguredApp(service).request("/ready", {
+      headers: {
+        Origin: "http://localhost:5173",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "http://localhost:5173",
+    );
+  });
+
   it.each([
     {
       CLEANVERSE_API_KEY: "not-valid-base64",
