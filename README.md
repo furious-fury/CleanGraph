@@ -15,9 +15,10 @@ The Node-only Cleanverse client supports secure transport, A-Pass generation,
 A-Pass and A-Token compliance reads, encrypted A-Token launch, application
 status reads, bounded status polling, transaction-index queries, and
 time-limited report downloads. A-Token client methods remain optional adapter
-functionality outside the primary demo. Hono exposes preflight and protected
-bounded transaction-evidence reads; it does not expose A-Token launch or status
-routes. Live demo A-Passes are provisioned through the trusted backend/client workflow; no raw identity data is stored in the repository.
+functionality outside the primary demo. Hono exposes preflight, protected bounded transaction-evidence reads, and a
+wallet-authenticated fictional UAT A-Pass onboarding flow behind `DEMO_MODE`;
+it does not expose A-Token launch or status routes. Demo onboarding constructs
+identity data only in backend memory and stores only safe workflow metadata.
 
 `TRWA` is a CleanGraph hackathon token, not an officially issued or registered
 Cleanverse A-Token. CleanGraph's Cleanverse gate is application-level;
@@ -56,6 +57,11 @@ TRWA_TOKEN_ADDRESS=0x...
 TRWA_ALLOWED_GROUP=
 TRWA_ALLOWED_SUBGROUP=
 TRWA_ALLOWED_COUNTRIES=US,GB,DE,SG
+DEMO_MODE=false
+# Required only when DEMO_MODE=true:
+DATABASE_URL=postgresql://user:password@localhost:5432/cleangraph
+FRONTEND_URL=http://localhost:5173
+DEMO_CLIENT_IP_HEADER=X-Forwarded-For
 ```
 
 `CLEANVERSE_BASE_URL` and `CLEANVERSE_TIMEOUT_MS` are optional. The base URL
@@ -80,8 +86,9 @@ The contract and backend preflight foundations are merged. The critical path is:
 1. Deploy and verify TRWA on Monad testnet, then record only its public address,
    deployment transaction, chain ID, and explorer links.
 2. Configure the verified token address and local policy in the API.
-3. Provision the two demo A-Passes.
-4. Connect the frontend to preflight, render ordered compliance checks, and
+3. Apply the demo A-Pass PostgreSQL migration and enable fictional onboarding
+   only for the UAT deployment.
+4. Connect the frontend to onboarding and preflight, render ordered compliance checks, and
    add the selected Monad wallet provider.
 5. Prove an eligible transfer confirms and the Wallet B scenario stops before
    signing.
@@ -98,8 +105,18 @@ The API currently exposes:
 - `GET /ready` for configured Cleanverse and local TRWA preflight readiness
 - `POST /api/v1/compliance/preflight` for ordered sender, recipient, and local
   TRWA policy checks over Cleanverse A-Pass data
+- `POST /api/v1/demo/apass/challenges` for one-time origin-bound wallet messages
+- `POST /api/v1/demo/apasses` for fictional GB/BR UAT onboarding
+- `POST /api/v1/demo/apasses/status` for fresh-signature status checks
 - `POST /api/v1/transactions/evidence` for authenticated indexed transaction
   evidence and report availability
+
+The demo routes require `DEMO_MODE=true`, PostgreSQL, the exact public
+application origin, and backend-only Cleanverse credentials. They return
+`404` when disabled. Run all pending migrations before enabling the routes with
+`pnpm --filter @cleangraph/api db:migrate`, then schedule
+`pnpm --filter @cleangraph/api purge:demo-apass`
+daily. See [handoff.md](./handoff.md) for the browser signing contract.
 
 The evidence route accepts a confirmed Monad transaction hash and wallet
 address. It makes up to three index reads one second apart and returns HTTP

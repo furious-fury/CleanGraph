@@ -10,16 +10,23 @@ import { secureHeaders } from "hono/secure-headers";
 import {
   getCleanverseBaseUrl,
   getCleanverseTimeoutMs,
+  getDemoClientIpHeader,
+  getFrontendUrl,
   getEnvironment,
   getTrwaPolicy,
   isCleanverseConfigured,
   type Environment,
 } from "./config/env.js";
+import { PostgresDemoAPassStore } from "./db/demo-apass-store.js";
 import {
   requestContext,
   type AppVariables,
 } from "./middleware/request-context.js";
 import type { FixedWindowRateLimitOptions } from "./middleware/rate-limit.js";
+import {
+  createDemoAPassRoutes,
+  type DemoAPassFailureLog,
+} from "./routes/demo-apass.js";
 import {
   createEvidenceRoutes,
   type EvidenceFailureLog,
@@ -29,6 +36,10 @@ import {
   createPreflightRoutes,
   type PreflightFailureLog,
 } from "./routes/preflight.js";
+import {
+  createDemoAPassService,
+  type DemoAPassService,
+} from "./services/demo-apass.js";
 import {
   createEvidenceService,
   type EvidenceService,
@@ -42,16 +53,21 @@ type AppOptions = {
   environment?: Environment;
   preflightService?: PreflightService | null;
   evidenceService?: EvidenceService | null;
+  demoAPassService?: DemoAPassService | null;
+  demoEnabled?: boolean;
+  demoClientIpHeader?: string;
   operatorToken?: string;
   evidenceRateLimit?: FixedWindowRateLimitOptions;
   logFailure?: (failure: PreflightFailureLog) => void;
   logEvidenceFailure?: (failure: EvidenceFailureLog) => void;
+  logDemoAPassFailure?: (failure: DemoAPassFailureLog) => void;
 };
 
 export function createApp(options: AppOptions = {}) {
   const environment = options.environment ?? getEnvironment();
   const runtime = resolveRuntime(environment, options);
   const operatorToken = options.operatorToken ?? environment.OPERATOR_TOKEN;
+  const demoEnabled = options.demoEnabled ?? environment.DEMO_MODE === true;
   const app = new Hono<{
     Variables: AppVariables;
   }>();
@@ -66,7 +82,7 @@ export function createApp(options: AppOptions = {}) {
   app.use(
     "/api/*",
     cors({
-      origin: environment.API_CORS_ORIGIN,
+      origin: getFrontendUrl(environment),
       allowHeaders: ["Authorization", "Content-Type", "X-Request-ID"],
       allowMethods: ["GET", "POST", "OPTIONS"],
       exposeHeaders: ["Retry-After", "X-Request-ID"],
@@ -88,6 +104,18 @@ export function createApp(options: AppOptions = {}) {
           ? {}
           : { service: runtime.preflightService }),
         onFailure: options.logFailure ?? logPreflightFailure,
+      }),
+    )
+    .route(
+      "/api/v1",
+      createDemoAPassRoutes({
+        enabled: demoEnabled,
+        ...(runtime.demoAPassService === undefined
+          ? {}
+          : { service: runtime.demoAPassService }),
+        clientIpHeader:
+          options.demoClientIpHeader ?? getDemoClientIpHeader(environment),
+        onFailure: options.logDemoAPassFailure ?? logDemoAPassFailure,
       }),
     )
     .route(
@@ -147,6 +175,7 @@ function resolveRuntime(
 ): {
   preflightService?: PreflightService;
   evidenceService?: EvidenceService;
+  demoAPassService?: DemoAPassService;
 } {
   let client: CleanverseClient | undefined;
 
@@ -174,6 +203,17 @@ function resolveRuntime(
             ? undefined
             : createPreflightService(client, policy);
         })();
+  const demoAPassService = "demoAPassService" in options
+    ? options.demoAPassService ?? undefined
+    : environment.DEMO_MODE !== true ||
+        client === undefined ||
+        environment.DATABASE_URL === undefined
+      ? undefined
+      : createDemoAPassService(
+          client,
+          new PostgresDemoAPassStore(environment.DATABASE_URL),
+          getFrontendUrl(environment),
+        );
   const evidenceService = "evidenceService" in options
     ? options.evidenceService ?? undefined
     : client === undefined
@@ -183,6 +223,7 @@ function resolveRuntime(
   return {
     ...(preflightService === undefined ? {} : { preflightService }),
     ...(evidenceService === undefined ? {} : { evidenceService }),
+    ...(demoAPassService === undefined ? {} : { demoAPassService }),
   };
 }
 
@@ -194,6 +235,19 @@ function logPreflightFailure(failure: PreflightFailureLog): void {
       code: failure.code,
       requestId: failure.requestId,
       completedChecks: failure.completedChecks,
+    }),
+  );
+}
+
+function logDemoAPassFailure(failure: DemoAPassFailureLog): void {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      event: failure.event,
+      operation: failure.operation,
+      code: failure.code,
+      requestId: failure.requestId,
+      status: failure.status,
     }),
   );
 }

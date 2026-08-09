@@ -76,10 +76,13 @@ These are all endpoints currently exposed by the API.
 | --- | --- | --- | --- | --- |
 | `GET` | `/health` | None | Returns `200` with `{ status: "ok", service, requestId }` whenever the HTTP process is running. | Optional liveness indicator only. It does not prove Cleanverse or preflight is configured. |
 | `GET` | `/ready` | None | Returns `200` with `preflightService: true` when Cleanverse credentials and the TRWA policy are loaded; otherwise returns `503` with `status: "degraded"`. | Call at startup and before a live demo. Show a non-blocking service-status message. |
-| `POST` | `/api/v1/compliance/preflight` | None | Validates a proposed Monad TRWA transfer, checks the sender then recipient A-Pass, and evaluates the local token policy. | Required immediately before any transfer signature. It is the main frontend endpoint. |
+| `POST` | `/api/v1/compliance/preflight` | None | Validates a proposed Monad TRWA transfer, checks the sender then recipient A-Pass, and evaluates the local token policy. | Required immediately before any transfer signature. It is the main transfer endpoint. |
+| `POST` | `/api/v1/demo/apass/challenges` | Wallet signature follows | Creates a five-minute, one-time message bound to the wallet, action, origin, and fictional profile. | Request before demo creation and before every status check. |
+| `POST` | `/api/v1/demo/apasses` | One-time CREATE challenge signature | Creates a fictional GB or BR A-Pass through backend-only Cleanverse credentials. | Submit the exact signed challenge; never send identity fields. |
+| `POST` | `/api/v1/demo/apasses/status` | One-time STATUS challenge signature | Safely checks whether the wallet onboarding is creating, pending, or active. | Poll using a new challenge and signature each time. |
 | `POST` | `/api/v1/transactions/evidence` | `Authorization: Bearer <OPERATOR_TOKEN>` | Looks up a confirmed Monad transaction in Cleanverse and, when possible, returns time-limited report availability. | Do not call from the browser. It is for a trusted backend or operator-only service because the bearer token must remain secret. |
 
-The frontend host must match `API_CORS_ORIGIN`, normally
+The frontend host must match `FRONTEND_URL`, normally
 `http://localhost:5173`. Read `VITE_API_BASE_URL` instead of hard-coding the
 API host in components.
 
@@ -134,6 +137,208 @@ confirmed Monad transaction. Errors use `401` for missing/invalid operator
 authentication, `429` for rate limiting, `422` for an invalid request, `502` or
 `504` for Cleanverse failures, and `503` when the service is unconfigured.
 Never expose, log, or persist a returned report download URL in the frontend.
+
+## Fictional demo A-Pass onboarding
+
+> **UAT only:** the GB and BR profiles are fictional hackathon test data. They
+> are not identity verification or real Know Your Customer (KYC). Production
+> must replace the profile selector with a trusted KYC-provider result.
+
+The browser sends only the wallet, profile choice, one-time challenge ID, and
+signature. The API constructs the fictional name, deterministic customer ID,
+document value, country, and one-year expiry in memory. Those identity values,
+the customer ID, signatures, credentials, and raw Cleanverse responses are not
+returned, logged, or stored.
+
+Every response from these endpoints has `Cache-Control: no-store`. The API
+uses the exact `FRONTEND_URL` for Cross-Origin Resource Sharing (CORS).
+When `DEMO_MODE` is false, all three paths return `404` without calling
+Cleanverse.
+
+### Backend configuration and database
+
+Add these backend-only values:
+
+```dotenv
+DEMO_MODE=true
+DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>
+FRONTEND_URL=http://localhost:5173
+DEMO_CLIENT_IP_HEADER=X-Forwarded-For
+```
+
+`CLEANVERSE_API_ID` and `CLEANVERSE_API_KEY` must also be loaded. The API
+will refuse an enabled demo configuration unless the database and both
+Cleanverse credentials are present. `FRONTEND_URL` defaults to
+`http://localhost:5173` and must be set to the deployed frontend URL.
+
+The configured client-IP header is trusted only when the deployment proxy
+removes incoming copies and sets its own value. Do not expose a deployment that
+blindly trusts a user-controlled forwarded header.
+
+Run all pending migrations before enabling the routes and on every deployment:
+
+```bash
+pnpm --filter @cleangraph/api db:migrate
+```
+
+The runner discovers every numbered SQL file in `apps/api/migrations`, applies
+pending files in filename order, records a SHA-256 checksum in
+`cleangraph_schema_migrations`, and uses a PostgreSQL advisory lock so only one
+deployment migrates at a time. It is safe to run on every deployment. Never edit
+an applied migration; add the next numbered SQL file instead.
+
+Run this command daily from the deployment scheduler to remove challenges,
+rate-limit buckets, and onboarding audit rows after 30 days:
+
+```bash
+pnpm --filter @cleangraph/api purge:demo-apass
+```
+
+### 1. Request the creation challenge
+
+```http
+POST /api/v1/demo/apass/challenges
+Content-Type: application/json
+
+{
+  "walletAddress": "0x1111111111111111111111111111111111111111",
+  "purpose": "CREATE",
+  "profile": "ELIGIBLE_GB"
+}
+```
+
+Allowed profiles are:
+
+- `ELIGIBLE_GB`: fictional GB identity intended to pass the current country policy.
+- `RESTRICTED_BR`: fictional BR identity intended to demonstrate policy denial.
+
+The HTTP `201` response is:
+
+```json
+{
+  "challengeId": "223e4567-e89b-42d3-a456-426614174000",
+  "message": "<exact message to sign>",
+  "expiresAt": "2026-08-09T12:05:00.000Z"
+}
+```
+
+Do not modify, reconstruct, or normalize `message` in the frontend.
+
+### 2. Sign the exact message
+
+For an injected EIP-1193 wallet:
+
+```ts
+const [walletAddress] = (await window.ethereum.request({
+  method: "eth_requestAccounts",
+})) as [`0x${string}`];
+
+const signature = (await window.ethereum.request({
+  method: "personal_sign",
+  params: [challenge.message, walletAddress],
+})) as `0x${string}`;
+```
+
+Some wallet libraries abstract `personal_sign`; use their standard
+`signMessage` operation with the exact plain-text message.
+
+### 3. Submit fictional onboarding
+
+```http
+POST /api/v1/demo/apasses
+Content-Type: application/json
+X-Request-ID: <new UUID>
+
+{
+  "walletAddress": "0x1111111111111111111111111111111111111111",
+  "profile": "ELIGIBLE_GB",
+  "challengeId": "223e4567-e89b-42d3-a456-426614174000",
+  "signature": "0x<130 hexadecimal signature characters>"
+}
+```
+
+A submitted registration returns HTTP `202`:
+
+```json
+{
+  "walletAddress": "0x1111111111111111111111111111111111111111",
+  "status": "PENDING",
+  "registrationTransactionHash": "0x<64 hexadecimal characters>"
+}
+```
+
+If Cleanverse is already active immediately, the endpoint can return HTTP
+`200` with `status: "ACTIVE"`. If any A-Pass already exists for the wallet,
+it returns HTTP `409` without overwriting it:
+
+```json
+{
+  "walletAddress": "0x1111111111111111111111111111111111111111",
+  "status": "ALREADY_EXISTS"
+}
+```
+
+Never send `country`, `fullName`, `customerId`, `documentHash`,
+`expirationTime`, `group`, `subGroup`, or `override`. Unknown fields are
+rejected with HTTP `422`.
+
+### 4. Request a fresh status challenge
+
+A creation signature cannot read status. Request a new challenge for each poll:
+
+```http
+POST /api/v1/demo/apass/challenges
+Content-Type: application/json
+
+{
+  "walletAddress": "0x1111111111111111111111111111111111111111",
+  "purpose": "STATUS"
+}
+```
+
+Sign the returned exact message, then submit:
+
+```http
+POST /api/v1/demo/apasses/status
+Content-Type: application/json
+X-Request-ID: <new UUID>
+
+{
+  "walletAddress": "0x1111111111111111111111111111111111111111",
+  "challengeId": "<fresh status challenge UUID>",
+  "signature": "0x<130 hexadecimal signature characters>"
+}
+```
+
+The safe HTTP `200` response contains only the wallet, status, and transaction
+hash when known:
+
+```json
+{
+  "walletAddress": "0x1111111111111111111111111111111111111111",
+  "status": "ACTIVE",
+  "registrationTransactionHash": "0x<64 hexadecimal characters>"
+}
+```
+
+### UI state and errors
+
+- `CREATING`: the backend has claimed the one allowed issuance attempt.
+- `PENDING`: Cleanverse returned a registration transaction but has not yet
+  reported an active A-Pass.
+- `ACTIVE`: `queryAPass()` confirmed the A-Pass is active.
+- `ALREADY_EXISTS`: an A-Pass existed before this demo request; do not offer an
+  overwrite button.
+
+Handle `404` as demo mode disabled, `503` as missing demo configuration,
+`401` as an invalid signature, and `409` as a mismatched/replayed
+challenge or existing A-Pass, `410` as an expired challenge, `422` as
+invalid input, `429` using the `Retry-After` header, and `502`/`504` as
+safe Cleanverse failures. Obtain a fresh challenge before retrying creation.
+
+A demo A-Pass is not transfer approval. The frontend must still call
+`POST /api/v1/compliance/preflight` immediately before every transfer wallet
+prompt and must not sign when preflight denies or fails.
 
 ## Preflight request
 
@@ -231,6 +436,10 @@ Every transaction sender needs test MON for gas and enough TRWA for the amount.
 ## Completion checklist
 
 - [ ] Read `VITE_API_BASE_URL` from environment configuration.
+- [ ] Label demo onboarding as fictional UAT, not real KYC.
+- [ ] Request and sign the exact CREATE challenge before onboarding.
+- [ ] Poll with a fresh signed STATUS challenge each time.
+- [ ] Never send or display identity, customer, or Cleanverse credential data.
 - [ ] Show `/ready` state on startup.
 - [ ] Validate recipient and amount before preflight.
 - [ ] Disable transfer controls while preflight is pending.
@@ -243,7 +452,11 @@ Every transaction sender needs test MON for gas and enough TRWA for the amount.
 
 ## Source of truth
 
-- `packages/shared/src/preflight.ts`: request and response schema
+- `packages/shared/src/demo-apass.ts`: demo onboarding request and safe response schemas
+- `apps/api/src/routes/demo-apass.ts`: demo HTTP status and error behavior
+- `apps/api/src/services/demo-apass.ts`: challenge, issuance, retry, and polling behavior
+- `apps/api/migrations/001_demo_apass.sql`: PostgreSQL tables and indexes
+- `packages/shared/src/preflight.ts`: transfer preflight request and response schema
 - `apps/api/src/routes/preflight.ts`: HTTP status behavior
 - `apps/api/src/services/preflight.ts`: policy evaluation
 - `apps/api/src/config/env.ts`: environment validation

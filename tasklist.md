@@ -2,16 +2,16 @@
 
 **Status:** Active self-deployed TRWA MVP
 
-**Last reconciled with code:** August 7, 2026
+**Last reconciled with code:** August 9, 2026
 
 ## Critical path
 
 1. [x] Implement and test the fixed-supply TRWA contract package.
 2. [x] Review and merge the contract PR.
-3. [ ] Deploy and verify TRWA on Monad testnet.
+3. [x] Deploy and verify TRWA on Monad testnet.
 4. [x] Refactor backend preflight to Cleanverse A-Pass reads plus local policy.
 5. [x] Merge the backend preflight PR.
-6. [ ] Provision Wallet A and Wallet B A-Passes.
+6. [x] Provision Wallet A and Wallet B A-Passes.
 7. [ ] Integrate frontend preflight, wallet signing, and receipt confirmation.
 8. [ ] Run live approved and pre-signature-denied journeys.
 9. [ ] Finish evidence UI, deployment, smoke tests, and submission.
@@ -70,19 +70,19 @@
 Warning: complete only after contract review. Never commit the deployer key,
 seed, funded environment file, or operator token.
 
-1. [ ] Install Foundry permanently and confirm `forge`, `cast`, and `anvil`.
-2. [ ] Fund a controlled deployer with Monad testnet MON.
+1. [x] Install Foundry permanently and confirm `forge`, `cast`, and `anvil`.
+2. [x] Fund a controlled deployer with Monad testnet MON.
 3. [ ] Run `forge fmt --check`, `forge build`, and `forge test`.
 4. [ ] Run the deployment script without `--broadcast`.
 5. [ ] Confirm the simulation uses the intended chain and treasury.
-6. [ ] Broadcast exactly once.
-7. [ ] Confirm contract bytecode exists.
-8. [ ] Confirm name, symbol, and 18 decimals.
-9. [ ] Confirm total supply is `1,000,000 × 10^18`.
-10. [ ] Confirm the treasury owns the initial supply.
-11. [ ] Perform one small test transfer.
-12. [ ] Verify source on the selected explorer when supported.
-13. [ ] Record public address, deployment transaction, chain ID, and links.
+6. [x] Broadcast exactly once.
+7. [x] Confirm contract bytecode exists.
+8. [x] Confirm name, symbol, and 18 decimals.
+9. [x] Confirm total supply is `1,000,000 Ãƒâ€” 10^18`.
+10. [x] Confirm the treasury owns the initial supply.
+11. [x] Perform one small test transfer.
+12. [x] Verify source on the selected explorer when supported.
+13. [x] Record public address, deployment transaction, chain ID, and links.
 
 ## 5. Backend configuration
 
@@ -94,7 +94,9 @@ seed, funded environment file, or operator token.
 6. [x] Reject partial or malformed policy configuration.
 7. [x] Replace `ASSET_OPERATOR_TOKEN` with `OPERATOR_TOKEN`.
 8. [x] Keep `OPERATOR_TOKEN` backend-only.
-9. [ ] Configure the verified testnet address in the deployed API.
+9. [x] Configure the verified testnet address in the deployed API.
+10. [x] Add FRONTEND_URL as the single CORS and signing-origin setting.
+11. [x] Add DEMO_MODE, DATABASE_URL, and trusted client-IP header settings.
 
 ## 6. Preflight orchestration
 
@@ -139,7 +141,30 @@ seed, funded environment file, or operator token.
 10. [x] Document unregistered TRWA indexing/report support as best-effort.
 11. [ ] Verify live index and report behavior after a testnet transfer.
 
-## 9. Frontend and wallet work
+## 9. Demo A-Pass onboarding backend
+
+1. [x] Add origin-bound CREATE and STATUS wallet challenges.
+2. [x] Verify EVM signatures and prevent challenge replay.
+3. [x] Generate fictional eligible GB and restricted BR profiles in the backend.
+4. [x] Call generateAPass with override disabled and preserve request IDs.
+5. [x] Query before retries and prevent duplicate issuance.
+6. [x] Persist challenges, safe onboarding state, and rate limits in PostgreSQL.
+7. [x] Add ordered, checksummed, transaction-safe database migrations.
+8. [x] Add the 30-day purge command and deployment documentation.
+9. [x] Test signatures, origin binding, expiry, replay, concurrency, failures,
+   privacy, rate limits, status polling, and migration safety.
+
+## 10. Frontend and wallet work
+
+### Fictional onboarding
+
+1. [ ] Label the GB/BR selector as fictional UAT rather than real KYC.
+2. [ ] Request and sign the exact CREATE challenge.
+3. [ ] Submit only wallet, profile, challenge ID, and signature.
+4. [ ] Poll with a fresh signed STATUS challenge.
+5. [ ] Render CREATING, PENDING, ACTIVE, and ALREADY_EXISTS safely.
+
+### Transfer flow
 
 1. [ ] Add shared and contracts workspace dependencies to the web app.
 2. [ ] Configure public Monad chain, explorer, and TRWA address.
@@ -156,17 +181,17 @@ seed, funded environment file, or operator token.
 13. [ ] Render evidence pending/indexed and report available/unavailable states.
 14. [ ] Warn that report URLs expire.
 
-## 10. Live demo preparation
+## 11. Live demo preparation
 
-1. [ ] Create or confirm Wallet A A-Pass.
-2. [ ] Confirm Wallet A is active, unexpired, and policy matching.
-3. [ ] Create or confirm Wallet B A-Pass.
-4. [ ] Confirm Wallet B fails only the intended country policy.
+1. [x] Create or confirm Wallet A A-Pass.
+2. [x] Confirm Wallet A is active, unexpired, and policy matching.
+3. [x] Create or confirm Wallet B A-Pass.
+4. [x] Confirm Wallet B fails only the intended country policy.
 5. [ ] Fund the sender wallet with MON for gas when needed.
 6. [ ] Transfer demo TRWA from the treasury to the intended sender if needed.
 7. [ ] Record only safe public identifiers.
 
-## 11. Quality and security
+## 12. Quality and security
 
 1. [x] Run contract formatting, build, and tests for the contract PR.
 2. [x] Run repository lint, type-check, tests, and build for the contract PR.
@@ -178,7 +203,7 @@ seed, funded environment file, or operator token.
 8. [ ] Review logs for identity, wallet, hash, and report URL leakage.
 9. [ ] Review every demo and pitch claim for the application-level limitation.
 
-## 12. Deployment and submission
+## 13. Deployment and submission
 
 1. [ ] Deploy the API with backend-only Cleanverse, policy, and operator values.
 2. [ ] Restrict production CORS to the deployed frontend.
