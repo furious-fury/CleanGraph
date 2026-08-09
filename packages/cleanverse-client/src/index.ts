@@ -48,6 +48,7 @@ export {
   type CleanverseClientConfig,
 } from "./config.js";
 export {
+  CLEANVERSE_APASS_MISSING_CODE,
   CleanverseBusinessError,
   CleanverseConfigurationError,
   CleanverseError,
@@ -56,5 +57,6 @@ export {
   CleanverseNetworkError,
   CleanversePollingExhaustedError,
   CleanverseTimeoutError,
+  isCleanverseAPassMissingError,
   type CleanverseErrorJson,
 } from "./errors.js";

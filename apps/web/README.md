@@ -7,19 +7,16 @@ uses Tailwind CSS, shadcn/ui, and Phosphor Icons.
 
 Implemented:
 
-- responsive application shell;
-- initial asset, recipient, and amount fields; and
-- static compliance-terminal layout.
+- responsive landing page and transfer workspace;
+- Mera passkey and optional Privy external-wallet connections;
+- wallet-authenticated fictional A-Pass onboarding;
+- ordered compliance preflight decisions; and
+- approved TRWA settlement with Monad confirmation.
 
-Remaining:
-
-- choose and configure a Monad-compatible wallet provider;
-- add `@cleangraph/shared` and client-side validation;
-- connect `POST /api/v1/compliance/preflight`;
-- render ordered pending, approved, denied, and error checks;
-- request a TRWA transfer signature only after approval;
-- show transaction confirmation, explorer, and evidence/report states; and
-- add frontend and end-to-end tests.
+Set `VITE_PRIVY_APP_ID` to the public App ID from the Privy dashboard to enable
+MetaMask, Coinbase Wallet, Rainbow, detected EVM extensions, and WalletConnect.
+Without it, the Mera passkey flow remains available and the external-wallet
+button explains that configuration is required.
 
 ## Development
 

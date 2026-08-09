@@ -62,13 +62,18 @@ DEMO_MODE=false
 DATABASE_URL=postgresql://user:password@localhost:5432/cleangraph
 FRONTEND_URL=http://localhost:5173
 DEMO_CLIENT_IP_HEADER=X-Forwarded-For
+# Public frontend identifier for optional external wallets.
+VITE_PRIVY_APP_ID=your-privy-app-id
 ```
 
 `CLEANVERSE_BASE_URL` and `CLEANVERSE_TIMEOUT_MS` are optional. The base URL
 defaults to the Cleanverse sandbox and the timeout defaults to 10 seconds.
 `CLEANVERSE_API_BASE_URL` remains accepted as a backwards-compatible base URL
 name. Configure `TRWA_TOKEN_ADDRESS` and `TRWA_ALLOWED_COUNTRIES` together; partial or malformed policy configuration is rejected. `TRWA_ALLOWED_GROUP` and `TRWA_ALLOWED_SUBGROUP` are optional exact, case-sensitive two-character provider codes. `OPERATOR_TOKEN` protects evidence
-requests and must remain only in the backend environment.
+requests and must remain only in the backend environment. `VITE_PRIVY_APP_ID`
+is a public frontend identifier, not a Privy secret. Leave it blank to keep
+external wallets disabled, and allow `http://localhost:5173` in the Privy
+dashboard for local development.
 
 Useful checks:
 

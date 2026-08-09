@@ -4,7 +4,9 @@ import type { Address } from "viem"
 import type { FrontendConfig } from "@/lib/config"
 import {
   BalanceNetworkMismatchError,
+  formatNativeBalance,
   loadTrwaBalance,
+  loadWalletBalances,
 } from "@/lib/balance"
 
 const config: FrontendConfig = {
@@ -39,5 +41,56 @@ describe("TRWA balance", () => {
       readBalance,
     })).rejects.toBeInstanceOf(BalanceNetworkMismatchError)
     expect(readBalance).not.toHaveBeenCalled()
+  })
+})
+
+describe("wallet balances", () => {
+  it("reads and formats native MON alongside TRWA", async () => {
+    await expect(loadWalletBalances(config, account, {
+      getChainId: vi.fn().mockResolvedValue(10_143),
+      readNativeBalance: vi.fn().mockResolvedValue(12_345_678_900_000_000_000n),
+      readTrwaBalance: vi.fn().mockResolvedValue(2_500_000_000_000_000_000n),
+    })).resolves.toEqual({
+      native: {
+        raw: 12_345_678_900_000_000_000n,
+        formatted: "12.345678",
+      },
+      trwa: {
+        raw: 2_500_000_000_000_000_000n,
+        formatted: "2.5",
+      },
+    })
+  })
+
+  it("keeps very small native balances visible", () => {
+    expect(formatNativeBalance(1n)).toBe("<0.000001")
+    expect(formatNativeBalance(0n)).toBe("0")
+  })
+
+  it("keeps MON available when the TRWA contract read fails", async () => {
+    await expect(loadWalletBalances(config, account, {
+      getChainId: vi.fn().mockResolvedValue(10_143),
+      readNativeBalance: vi.fn().mockResolvedValue(1_000_000_000_000_000_000n),
+      readTrwaBalance: vi.fn().mockRejectedValue(new Error("contract unavailable")),
+    })).resolves.toEqual({
+      native: {
+        raw: 1_000_000_000_000_000_000n,
+        formatted: "1",
+      },
+      trwa: null,
+    })
+  })
+
+  it("does not read balances when the RPC is on the wrong chain", async () => {
+    const readNativeBalance = vi.fn()
+    const readTrwaBalance = vi.fn()
+
+    await expect(loadWalletBalances(config, account, {
+      getChainId: vi.fn().mockResolvedValue(1),
+      readNativeBalance,
+      readTrwaBalance,
+    })).rejects.toBeInstanceOf(BalanceNetworkMismatchError)
+    expect(readNativeBalance).not.toHaveBeenCalled()
+    expect(readTrwaBalance).not.toHaveBeenCalled()
   })
 })

@@ -159,6 +159,29 @@ describe("self-deployed TRWA preflight", () => {
     },
   );
 
+  it("denies a sender that has no A-Pass instead of reporting an outage", async () => {
+    const queryAPass = vi
+      .fn<CleanverseComplianceReader["queryAPass"]>()
+      .mockRejectedValueOnce(new CleanverseBusinessError(requestId, "0002"));
+
+    const result = await service({ queryAPass }).evaluate(intent, requestId);
+
+    expect(result).toMatchObject({
+      kind: "decision",
+      decision: {
+        approved: false,
+        decisionCode: "SENDER_APASS_INACTIVE",
+        checks: [{
+          id: "sender-eligibility",
+          status: "denied",
+          code: "APASS_MISSING",
+          message: "Sender does not have an A-Pass.",
+        }],
+      },
+    });
+    expect(queryAPass).toHaveBeenCalledTimes(1);
+  });
+
 
   it.each([
     ["inactive", { status: "FROZEN", statusCode: 2 }, "APASS_INACTIVE", "APASS_INACTIVE"],
@@ -185,6 +208,33 @@ describe("self-deployed TRWA preflight", () => {
       expect(queryAPass).toHaveBeenCalledTimes(2);
     },
   );
+
+  it("denies a recipient that has no A-Pass and preserves the sender approval", async () => {
+    const queryAPass = vi
+      .fn<CleanverseComplianceReader["queryAPass"]>()
+      .mockResolvedValueOnce(response(pass()))
+      .mockRejectedValueOnce(new CleanverseBusinessError(requestId, "0002"));
+
+    const result = await service({ queryAPass }).evaluate(intent, requestId);
+
+    expect(result).toMatchObject({
+      kind: "decision",
+      decision: {
+        approved: false,
+        decisionCode: "RECIPIENT_APASS_INACTIVE",
+        checks: [
+          { id: "sender-eligibility", status: "approved" },
+          {
+            id: "recipient-eligibility",
+            status: "denied",
+            code: "APASS_MISSING",
+            message: "Recipient does not have an A-Pass.",
+          },
+        ],
+      },
+    });
+    expect(queryAPass).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("preflight failure mapping", () => {

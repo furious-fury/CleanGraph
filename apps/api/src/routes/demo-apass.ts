@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import type { AppVariables } from "../middleware/request-context.js";
 import {
-  DemoAPassServiceError,
+  isDemoAPassServiceError,
   type DemoAPassService,
 } from "../services/demo-apass.js";
 
@@ -19,6 +19,8 @@ export type DemoAPassFailureLog = {
   code: string;
   requestId: string;
   status: number;
+  upstreamCode?: string;
+  causeCode?: string;
 };
 
 type DemoAPassRouteOptions = {
@@ -152,13 +154,29 @@ function failureResponse(
   error: unknown,
   onFailure?: (failure: DemoAPassFailureLog) => void,
 ) {
-  if (!(error instanceof DemoAPassServiceError)) {
-    return internalResponse(context, operation, onFailure);
+  if (!isDemoAPassServiceError(error)) {
+    const causeCode = databaseFailureCode(error);
+    if (causeCode !== undefined) {
+      return databaseUnavailableResponse(
+        context,
+        operation,
+        causeCode,
+        onFailure,
+      );
+    }
+    return internalResponse(context, operation, error, onFailure);
   }
   if (error.retryAfterSeconds !== undefined) {
     context.header("Retry-After", String(error.retryAfterSeconds));
   }
-  logFailure(context, operation, error.code, error.status, onFailure);
+  logFailure(
+    context,
+    operation,
+    error.code,
+    error.status,
+    onFailure,
+    error.upstreamCode,
+  );
   return context.json(
     {
       requestId: context.get("requestId"),
@@ -193,10 +211,19 @@ function unavailableResponse(
 function internalResponse(
   context: AppContext,
   operation: DemoAPassFailureLog["operation"],
+  error: unknown,
   onFailure?: (failure: DemoAPassFailureLog) => void,
 ) {
   const code = "INTERNAL_SERVER_ERROR" satisfies DemoAPassErrorCode;
-  logFailure(context, operation, code, 500, onFailure);
+  logFailure(
+    context,
+    operation,
+    code,
+    500,
+    onFailure,
+    undefined,
+    safeErrorName(error),
+  );
   return context.json(
     {
       requestId: context.get("requestId"),
@@ -209,12 +236,42 @@ function internalResponse(
   );
 }
 
+function databaseUnavailableResponse(
+  context: AppContext,
+  operation: DemoAPassFailureLog["operation"],
+  causeCode: string,
+  onFailure?: (failure: DemoAPassFailureLog) => void,
+) {
+  const code = "DATABASE_UNAVAILABLE" satisfies DemoAPassErrorCode;
+  logFailure(
+    context,
+    operation,
+    code,
+    503,
+    onFailure,
+    undefined,
+    causeCode,
+  );
+  return context.json(
+    {
+      requestId: context.get("requestId"),
+      error: {
+        code,
+        message: "The demo A-Pass database is temporarily unavailable.",
+      },
+    },
+    503,
+  );
+}
+
 function logFailure(
   context: AppContext,
   operation: DemoAPassFailureLog["operation"],
   code: string,
   status: number,
   onFailure?: (failure: DemoAPassFailureLog) => void,
+  upstreamCode?: string,
+  causeCode?: string,
 ): void {
   onFailure?.({
     event: "demo_apass_failure",
@@ -222,5 +279,22 @@ function logFailure(
     code,
     requestId: context.get("requestId"),
     status,
+    ...(upstreamCode === undefined ? {} : { upstreamCode }),
+    ...(causeCode === undefined ? {} : { causeCode }),
   });
+}
+
+function databaseFailureCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+  const code = String(error.code);
+  return /^(?:E[A-Z0-9_]+|[0-9A-Z]{5})$/.test(code) ? code : undefined;
+}
+
+function safeErrorName(error: unknown): string {
+  if (!(error instanceof Error)) return "UNKNOWN";
+  return /^[A-Za-z][A-Za-z0-9]*Error$/.test(error.name)
+    ? error.name
+    : "UNKNOWN";
 }

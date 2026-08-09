@@ -37,4 +37,10 @@ describe("frontend configuration", () => {
     expect(resolveFrontendConfig({ ...validEnvironment, VITE_MONAD_CHAIN_ID: "1" }).ok).toBe(false)
     expect(resolveFrontendConfig({ ...validEnvironment, VITE_MONAD_RPC_URL: "http://rpc.example" }).ok).toBe(false)
   })
+
+  it("keeps the public Privy app ID optional", () => {
+    const result = resolveFrontendConfig({ ...validEnvironment, VITE_PRIVY_APP_ID: "clean-graph-demo" })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.config.privyAppId).toBe("clean-graph-demo")
+  })
 })

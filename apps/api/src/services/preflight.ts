@@ -5,6 +5,7 @@ import {
   CleanverseMalformedResponseError,
   CleanverseNetworkError,
   CleanverseTimeoutError,
+  isCleanverseAPassMissingError,
   type CleanverseClient,
   type CleanverseRequestOptions,
   type QueryAPassResult,
@@ -32,6 +33,9 @@ export type PreflightService = {
 type PreflightServiceOptions = { clock?: () => Date };
 type VerificationSubject = "sender" | "recipient";
 type PolicyDenial = { decisionCode: DeniedDecisionCode; check: ComplianceCheck };
+type APassEvaluation =
+  | { approved: ComplianceCheck; denial?: never }
+  | { approved?: never; denial: PolicyDenial };
 
 const publicFailureByKind = {
   notConfigured: {
@@ -87,21 +91,27 @@ export function createPreflightService(
       const requestOptions: CleanverseRequestOptions = { requestId };
 
       try {
-        const sender = await reader.queryAPass(
-          { chain: intent.chain, address: intent.sender },
+        const senderCheck = await queryAndEvaluateAPass(
+          reader,
+          intent,
+          "sender",
           requestOptions,
+          policy,
+          clock(),
         );
-        const senderCheck = evaluateAPass("sender", sender.data, policy, clock());
         if (senderCheck.denial) {
           return deniedDecision(requestId, checks, senderCheck.denial);
         }
         checks.push(senderCheck.approved);
 
-        const recipient = await reader.queryAPass(
-          { chain: intent.chain, address: intent.recipient },
+        const recipientCheck = await queryAndEvaluateAPass(
+          reader,
+          intent,
+          "recipient",
           requestOptions,
+          policy,
+          clock(),
         );
-        const recipientCheck = evaluateAPass("recipient", recipient.data, policy, clock());
         if (recipientCheck.denial) {
           return deniedDecision(requestId, checks, recipientCheck.denial);
         }
@@ -132,12 +142,37 @@ export function createPreflightService(
   };
 }
 
+async function queryAndEvaluateAPass(
+  reader: CleanverseComplianceReader,
+  intent: TransactionIntent,
+  subject: VerificationSubject,
+  requestOptions: CleanverseRequestOptions,
+  policy: TrwaPolicy,
+  checkedAt: Date,
+): Promise<APassEvaluation> {
+  try {
+    const response = await reader.queryAPass(
+      {
+        chain: intent.chain,
+        address: subject === "sender" ? intent.sender : intent.recipient,
+      },
+      requestOptions,
+    );
+    return evaluateAPass(subject, response.data, policy, checkedAt);
+  } catch (error) {
+    if (isCleanverseAPassMissingError(error)) {
+      return missingAPassDenial(subject, checkedAt);
+    }
+    throw error;
+  }
+}
+
 function evaluateAPass(
   subject: VerificationSubject,
   result: QueryAPassResult,
   policy: TrwaPolicy,
   checkedAt: Date,
-): { approved: ComplianceCheck; denial?: never } | { approved?: never; denial: PolicyDenial } {
+): APassEvaluation {
   const id = subject === "sender" ? "sender-eligibility" : "recipient-eligibility";
   const subjectLabel = subject === "sender" ? "Sender" : "Recipient";
   const suffix = subject === "sender" ? "SENDER" : "RECIPIENT";
@@ -189,6 +224,28 @@ function evaluateAPass(
       code: "APASS_POLICY_MATCH",
       message: `${subjectLabel} A-Pass satisfies the local asset policy.`,
       checkedAt: timestamp(checkedAt),
+    },
+  };
+}
+
+function missingAPassDenial(
+  subject: VerificationSubject,
+  checkedAt: Date,
+): APassEvaluation {
+  const sender = subject === "sender";
+  const subjectLabel = sender ? "Sender" : "Recipient";
+
+  return {
+    denial: {
+      decisionCode: sender
+        ? "SENDER_APASS_INACTIVE"
+        : "RECIPIENT_APASS_INACTIVE",
+      check: deniedCheck(
+        sender ? "sender-eligibility" : "recipient-eligibility",
+        "APASS_MISSING",
+        `${subjectLabel} does not have an A-Pass.`,
+        checkedAt,
+      ),
     },
   };
 }

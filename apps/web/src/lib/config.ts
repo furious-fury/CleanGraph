@@ -9,6 +9,7 @@ export type FrontendConfig = {
   rpcUrl: string
   explorerUrl: string
   tokenAddress: Address
+  privyAppId?: string
 }
 
 export type FrontendConfigResult =
@@ -29,6 +30,7 @@ export function resolveFrontendConfig(environment: PublicEnvironment): FrontendC
     )
     const rpcValue = stringValue(environment.VITE_MONAD_RPC_URL)
     const explorerValue = stringValue(environment.VITE_MONAD_EXPLORER_URL)
+    const privyAppId = stringValue(environment.VITE_PRIVY_APP_ID)
 
     if (!rpcValue || !explorerValue) {
       return {
@@ -45,6 +47,7 @@ export function resolveFrontendConfig(environment: PublicEnvironment): FrontendC
         rpcUrl: parseUrl(rpcValue, "VITE_MONAD_RPC_URL", false),
         explorerUrl: parseUrl(explorerValue, "VITE_MONAD_EXPLORER_URL", false),
         tokenAddress: TRWA_TOKEN_ADDRESS,
+        ...(privyAppId === undefined ? {} : { privyAppId }),
       },
     }
   } catch (error) {

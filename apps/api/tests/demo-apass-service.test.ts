@@ -264,6 +264,20 @@ describe("demo A-Pass onboarding service", () => {
     },
   );
 
+  it("preserves a safe Cleanverse business code and explains override-required rejections", async () => {
+    const fixture = serviceFixture();
+    fixture.generateAPass.mockRejectedValue(
+      new CleanverseBusinessError(requestId, "1000"),
+    );
+
+    await expect(challengeAndCreate(fixture)).rejects.toMatchObject({
+      code: "CLEANVERSE_REJECTED",
+      status: 502,
+      upstreamCode: "1000",
+      message: expect.stringContaining("will not overwrite"),
+    });
+  });
+
   it("rejects an invalid wallet signature before consuming or issuing", async () => {
     const fixture = serviceFixture();
     fixture.verifyWalletProof.mockResolvedValue(false);
@@ -497,6 +511,56 @@ describe("demo A-Pass onboarding service", () => {
 
     expect(response.status).toBe("ACTIVE");
     expect(fixture.store.onboardings.get(wallet)?.state).toBe("ACTIVE");
+  });
+
+  it("verifies an existing Cleanverse A-Pass without requiring local onboarding", async () => {
+    const fixture = serviceFixture();
+    fixture.queryAPass.mockResolvedValue({
+      requestId,
+      encrypted: false,
+      data: {
+        cvRecordId: "existing-cleanverse-record",
+        tier: "1",
+        subTier: 1,
+        statusCode: 1,
+        status: "ACTIVE",
+        expirationTime: 1_900_000_000,
+        group: "",
+        subGroup: "",
+        currentKycHash: "hash",
+        countries: ["GB"],
+      },
+    });
+    const challenge = await fixture.service.createChallenge({
+      walletAddress: wallet,
+      purpose: "STATUS",
+      clientIp: "192.0.2.10",
+    });
+
+    await expect(fixture.service.readStatus({
+      walletAddress: wallet,
+      challengeId: challenge.challengeId,
+      signature,
+      clientIp: "192.0.2.10",
+      requestId,
+    })).resolves.toEqual({ walletAddress: wallet, status: "ACTIVE" });
+  });
+
+  it("rejects an existing-A-Pass selection when Cleanverse has no record", async () => {
+    const fixture = serviceFixture();
+    const challenge = await fixture.service.createChallenge({
+      walletAddress: wallet,
+      purpose: "STATUS",
+      clientIp: "192.0.2.10",
+    });
+
+    await expect(fixture.service.readStatus({
+      walletAddress: wallet,
+      challengeId: challenge.challengeId,
+      signature,
+      clientIp: "192.0.2.10",
+      requestId,
+    })).rejects.toMatchObject({ code: "APASS_NOT_FOUND", status: 404 });
   });
 
   it("returns a retry delay when a persistent rate limit denies a request", async () => {
